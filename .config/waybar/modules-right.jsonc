@@ -1,0 +1,94 @@
+{
+    "tray": {
+        "icon-size": 16,
+        "spacing": 8,
+        "show-passive-items": true
+    },
+
+    "clock": {
+        "timezone": "Asia/Hong_Kong",
+        "format": "{:%H:%M}",
+        "calendar": {
+            "mode": "year",
+            "mode-mon-col": 3,
+            "weeks-pos": "right",
+            "on-scroll": 1,
+            "format": {
+                "months": "<span color='#ffead3'><b>{}</b></span>",
+                "days": "<span color='#ecc6d9'><b>{}</b></span>",
+                "weeks": "<span color='#99ffdd'><b>W{}</b></span>",
+                "weekdays": "<span color='#ffcc66'><b>{}</b></span>",
+                "today": "<span color='#ff6699'><b><u>{}</u></b></span>"
+            }
+        },
+        "actions": {
+            "on-click-right": "mode",
+            "on-click-forward": "tz_up",
+            "on-click-backward": "tz_down",
+            "on-scroll-up": "shift_up",
+            "on-scroll-down": "shift_down"
+        },
+        "tooltip-format": "<span size='9pt' font='Maple Mono NF CN'>{calendar}</span>"
+    },
+
+    "power-profiles-daemon": {
+        "format": "{icon}",
+        "tooltip-format": "当前模式: {profile}\n驱动: {driver}",
+        "tooltip": true,
+        "format-icons": {
+            "performance": "󱐋",
+            "balanced": "",
+            "power-saver": ""
+        }
+    },
+
+    "pulseaudio": {
+        "format": "{icon}",
+        "format-muted": "",
+        "format-icons": {
+            "default": ["", "", " "]
+        },
+        "max-volume": 150,
+        "scroll-step": 2, // %, can be a float
+        "on-scroll-up": "~/.config/niri/scripts/audio.sh speaker increase",
+        "on-scroll-down": "~/.config/niri/scripts/audio.sh speaker decrease",
+        "on-click": "kitty --app-id wiremix -e wiremix",
+        "on-click-right": "pavucontrol -t 3"
+    },
+
+    "network": {
+        "format-disconnected": "{icon}",
+        "format-wifi": "{icon}",
+        "format-ethernet": "{icon}",
+        "format-icons": {
+            "disconnected": "󰤮",
+            "wifi": ["󰤯", "󰤟", "󰤢", "󰤥", "󰤨"],
+            "ethernet": "󰈀"
+        },
+        "tooltip-format-wifi": "信号强度: {signalStrength}%",
+        "on-click": "kitty --app-id nmtui -e nmtui",
+        "on-click-right": "nm-connection-editor"
+    },
+
+    "bluetooth": {
+        "format": "󰂯",
+        "format-disabled": "󰂲",
+        "format-connected": "󰂱",
+        "tooltip-format": "{controller_alias}\t{controller_address}\n\n{num_connections} connected",
+        "tooltip-format-connected": "{controller_alias}\t{controller_address}\n\n{num_connections} connected\n\n{device_enumerate}",
+        "tooltip-format-enumerate-connected": "{device_alias}\t{device_address}",
+        "tooltip-format-enumerate-connected-battery": "{device_alias}\t{device_address}\t{device_battery_percentage}%",
+        "on-click": "kitty --app-id bluetui -e bluetui",
+        "on-click-right": "blueberry"
+    },
+
+    "custom/brightness": {
+        "tooltip-format": "Click to Mute | Right-Click to Mute Mic | Mid-Click to Open Pavucontrol\brightness: {text}%",
+        "format": "",
+        "signal": 8,
+        "exec": "~/.config/niri/scripts/brightness.sh get",
+        "on-scroll-up": "~/.config/niri/scripts/brightness.sh increase",
+        "on-scroll-down": "~/.config/niri/scripts/brightness.sh decrease",
+        "tooltip": false
+    }
+}

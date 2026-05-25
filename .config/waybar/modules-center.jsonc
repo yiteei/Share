@@ -1,0 +1,17 @@
+{
+    "mpris": {
+        "format": "{player_icon} {title} - {artist}",
+        "format-paused": "{status_icon} <i>{title} - {artist}</i>",
+        "max-length": 40, // 限制长度，防止歌名太长把 Bar 撑爆
+        "player-icons": {
+            "default": "󰎈",
+            "firefox": "",
+            "chromium": "",
+            "spotify": "",
+            "netease-cloud-music": "󰓇"
+        },
+        "status-icons": {
+            "paused": "󰏤"
+        }
+    }
+}

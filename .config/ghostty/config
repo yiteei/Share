@@ -1,0 +1,59 @@
+# 字體設置
+font-family = "Maple Mono NF CN"
+font-size = 15
+
+# 窗口設置
+# window-decoration = none
+window-padding-x = 18
+window-padding-y = 20
+# window-padding-balance = false
+cursor-invert-fg-bg = true
+
+# 主題設置
+foreground = #cdd6f4
+background = #1e1e2e
+background-opacity = 0.83
+
+selection-foreground = #cdd6f4
+selection-background = #353749
+
+cursor-color = #f5e0dc
+cursor-text = #1e1e2e
+cursor-style = block
+adjust-cursor-thickness = 10
+cursor-click-to-move = true
+
+# url-color = #89b4fa
+
+# 調色板 catppuccin-mocha
+# black
+palette = 0=#45475a
+palette = 8=#585b70
+
+# red
+palette = 1=#f38ba8
+palette = 9=#f38ba8
+
+# green
+palette = 2=#a6e3a1
+palette = 10=#a6e3a1
+
+# yellow
+palette = 3=#f9e2af
+palette = 11=#f9e2af
+
+# blue
+palette = 4=#89b4fa
+palette = 12=#89b4fa
+
+# magenta
+palette = 5=#f5c2e7
+palette = 13=#f5c2e7
+
+# cyan
+palette = 6=#94e2d5
+palette = 14=#94e2d5
+
+# white
+palette = 7=#a6adc8
+palette = 15=#bac2de

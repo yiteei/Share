@@ -1,0 +1,746 @@
+debug {
+    // render-drm-device "/dev/dri/by-path/pci-0000:00:02.0-render" // iGPU (Intel)
+    // ignore-drm-device "/dev/dri/by-path/pci-0000:00:02.0-card"
+    // ignore-drm-device "/dev/dri/by-path/pci-0000:00:02.0-render"
+    // ignore-drm-device "/dev/dri/by-path/pci-0000:03:00.0-card"
+    // ignore-drm-device "/dev/dri/by-path/pci-0000:03:00.0-render"
+}
+
+environment {
+    XDG_CURRENT_DESKTOP "niri"
+
+    VK_DRIVER_FILES "/usr/share/vulkan/icd.d/intel_icd.json"
+    MESA_LOADER_DRIVER_OVERRIDE "iris" // OpenGL
+    RUSTICL_ENABLE "iris" // OpenCL
+    RUSTICL_FEATURES "intel"
+    ANV_DEBUG "video-decode,video-encode"
+
+    LIBVA_DRIVER_NAME "iHD" // VA-API
+    VDPAU_DRIVER "va_gl" // VDPAU
+
+    GTK_USE_PORTAL "1"
+
+    QT_QPA_PLATFORM "wayland;xcb"
+    QT_QPA_PLATFORMTHEME "gtk3"
+    QT_QPA_PLATFORMTHEME_QT6 "gtk3"
+    QT_WAYLAND_DISABLE_WINDOWDECORATION "1"
+
+    GST_GL_WINDOW "wayland"
+
+    ALSOFT_DRIVERS "pipewire"
+
+    SDL_AUDIO_DRIVER  "pipewire"
+    SDL_AUDIODRIVER  "pipewire"
+
+    COGL_ATLAS_DEFAULT_BLIT_MODE "framebuffer"
+
+    // _JAVA_AWT_WM_NONREPARENTING "1"
+
+    ELECTRON_OZONE_PLATFORM_HINT "auto"
+    MOZ_ENABLE_WAYLAND "1"
+    MOZ_DISABLE_RDD_SANDBOX "1"
+
+    SteamOS "1"
+    SteamDeck "1"
+
+    WINE_USE_TAKE_FOCUS "1"
+
+    PROTON_ENABLE_WAYLAND "1"
+    PROTON_NO_WM_DECORATION "1"
+    PROTON_XESS_UPGRADE "1"
+    PROTON_USE_WOW64 "1"
+
+    QS_ICON_THEME "Papirus-Dark"
+    DMS_SCREENSHOT_EDITOR "swappy"
+
+    LANG "zh_CN.utf8"
+    LC_CTYPE "zh_CN.utf8"
+    // LC_CTYPE "en_US.UTF-8"
+
+    QT_IM_MODULES "wayland;fcitx"
+    QT_IM_MODULE "fcitx"
+    XMODIFIERS "@im=fcitx"
+    // SDL_IM_MODULE "fcitx"
+    // GLFW_IM_MODULE "ibus"
+}
+
+cursor {
+    // xcursor-theme "capitaine-cursors"
+    xcursor-size 24
+    hide-after-inactive-ms 4000 // 在 x ms 不活动后隐藏光标
+}
+
+prefer-no-csd
+
+screenshot-path "~/Pictures/Screenshots/Screenshot from %Y-%m-%d %H-%M-%S.png"
+
+spawn-at-startup "~/.config/niri/scripts/startup.sh"
+
+include "dms/outputs.kdl"
+
+input {
+    keyboard {
+        xkb {
+            layout "us"
+        }
+        // 在启动上启用numlock，省略此设置会禁用它。
+        numlock
+    }
+
+    mouse {
+        // 设置鼠标移动速度,-1到1之间由慢到快
+        accel-speed 1
+    }
+
+    touchpad {
+        tap
+        natural-scroll
+        scroll-method "two-finger"
+    }
+
+    // niri默认接管电源按钮的功能是sleep,这里禁用以使用关机功能
+    disable-power-key-handling
+    // 切换mod键：正常使用alt，嵌套窗口内使用Super。
+    mod-key "Super"
+    mod-key-nested "Alt"
+
+    // 仅在不会滚动视图时允许焦点跟随鼠标
+    focus-follows-mouse max-scroll-amount="0%"
+}
+
+// 禁用主剪贴板（中键粘贴）
+clipboard {
+    disable-primary
+}
+
+switch-events {
+    lid-open { spawn "notify-send" "The laptop lid is open!"; }
+    // tablet-mode-on { spawn "bash" "-c" "gsettings set org.gnome.desktop.a11y.applications screen-keyboard-enabled true"; }
+    // tablet-mode-off { spawn "bash" "-c" "gsettings set org.gnome.desktop.a11y.applications screen-keyboard-enabled false"; }
+}
+
+recent-windows {
+    // off
+    debounce-ms 750
+
+    open-delay-ms 150
+
+    highlight {
+        active-color "#cdd6f453"
+        urgent-color "#1e1e2e93"
+        padding 30
+        corner-radius 14
+    }
+
+    previews {
+        max-height 480
+        max-scale 0.5
+    }
+
+    binds {
+        Alt+Tab         { next-window; }
+        Alt+Shift+Tab   { previous-window; }
+        Alt+grave       { next-window     filter="app-id"; }
+        Alt+Shift+grave { previous-window filter="app-id"; }
+    }
+}
+
+gestures {
+    hot-corners {
+        off
+    }
+}
+
+hotkey-overlay {
+    // off
+    skip-at-startup
+}
+
+binds {
+    Mod+Shift+E repeat=false { quit; }
+    Ctrl+Alt+Delete repeat=false { quit skip-confirmation=true; }
+
+    Mod+X repeat=false { close-window; }
+    Mod+Ctrl+X repeat=false { spawn-sh "kill -9 $(niri msg -j windows | jq '.[] | select(.is_focused == true)' | jq .pid)"; }
+
+    Mod+Shift+Slash { show-hotkey-overlay; }
+
+    Print repeat=false { spawn-sh "dms ipc call niri screenshot"; }
+    Ctrl+Print repeat=false { spawn-sh "dms ipc call niri screenshotScreen"; }
+    Alt+Print repeat=false { spawn-sh "dms ipc call niri screenshotWindow"; }
+
+    Mod+Shift+Print repeat=false { spawn-sh "DRI_PRIME=pci-0000_00_02_0 obs"; }
+
+    Mod+F1 repeat=false { spawn "chamel" "toggle"; }
+    Mod+F2 repeat=false { spawn "chamel" "undo"; }
+    Mod+F3 repeat=false { spawn "chamel" "clear"; }
+
+    Mod+Escape allow-inhibiting=false { toggle-keyboard-shortcuts-inhibit; }
+    Mod+Shift+P repeat=false { power-off-monitors; }
+
+    Mod+Space repeat=false { spawn-sh "dms ipc call spotlight toggle"; }
+    Mod+Return { spawn "alacritty"; }
+
+    Mod+Tab repeat=false { toggle-overview; }
+    Mod+Shift+Escape repeat=false { spawn-sh "dms ipc call processlist focusOrToggle"; }
+    Mod+A repeat=false { spawn-sh "dms ipc call bar toggle name 'Main Bar'"; }
+    Mod+B repeat=false { spawn "thorium-browser"; }
+    Mod+D repeat=false { spawn "onlyoffice-desktopeditors"; }
+    Mod+E { spawn-sh "nautilus --new-window"; }
+    Mod+G repeat=false { spawn-sh "powerprofilesctl set $(powerprofilesctl get | grep -q performance && echo balanced || echo performance) && notify-send $(powerprofilesctl get)"; }
+    Mod+I repeat=false { spawn-sh "dms ipc call settings focusOrToggle"; }
+    Mod+M repeat=false { spawn "splayer"; }
+    Mod+N repeat=false { spawn-sh "dms ipc call notifications toggle"; }
+    Mod+Q repeat=false { spawn-sh "dms ipc call spotlight toggle"; }
+    Mod+S { spawn-sh "wezterm start --class systemctl-tui sudo systemctl-tui"; }
+    Mod+T { spawn "wezterm"; }
+    Mod+V repeat=false { spawn-sh "dms ipc call clipboard toggle"; }
+
+    Ctrl+Shift+L repeat=false allow-inhibiting=false { spawn-sh "dms ipc call lock lock"; }
+    Ctrl+Shift+A repeat=false { spawn-sh "dms ipc call powermenu toggle"; }
+    // Ctrl+Shift+S repeat=false { spawn-sh "systemctl suspend"; }
+
+    Mod+Shift+A repeat=false { spawn-sh "waydroid status | grep -q RUNNING && waydroid session stop || waydroid show-full-ui &"; }
+    Mod+Shift+C repeat=false { spawn "code"; }
+    Mod+Shift+G repeat=false { spawn-sh "gamescope -r 240 -W 2560 -H 1600 --hdr-enabled --backend wayland --force-grab-cursor -e -- steam -steamos -pipewire-dmabuf -gamepadui"; }
+    // Mod+Shift+G repeat=false { spawn-sh "steam -tenfoot -system-composer"; }
+    // Mod+Shift+G repeat=false { spawn-sh "steam -system-composer"; }
+
+    Mod+Alt+T repeat=false { spawn-sh r#"niri msg --json pick-window | jq -r .title | wl-copy && notify-send "Picked window title" "$(wl-paste)""#; }
+    Mod+Alt+W repeat=false { spawn-sh r#"niri msg --json pick-window | jq -r .app_id | wl-copy && notify-send "Picked window id" "$(wl-paste)""#; }
+    Mod+Alt+C repeat=false { spawn-sh "dms color pick -a"; }
+
+    Mod+Alt+R repeat=false { spawn-sh "dms ipc call settings toggleWith displays"; }
+    Mod+Shift+S repeat=false { spawn-sh "dms ipc call theme toggle"; }
+
+    // Mod+Shift+W repeat=false { spawn-sh "dms ipc call wallpaper next"; }
+    Mod+Shift+W repeat=false { spawn-sh "lianwall next || lianwall restart"; }
+    Mod+Ctrl+W repeat=false { spawn-sh "lianwall switch || lianwall restart"; }
+
+    // Change brightness
+    XF86MonBrightnessDown allow-when-locked=true { spawn-sh "dms ipc call brightness decrement 10 ''"; }
+    XF86MonBrightnessUp     allow-when-locked=true { spawn-sh "dms ipc call brightness increment 10 ''"; }
+
+    XF86KbdBrightnessDown allow-when-locked=true { spawn-sh "dms ipc call brightness decrement 10 ''"; }
+    XF86KbdBrightnessUp     allow-when-locked=true { spawn-sh "dms ipc call brightness increment 10 ''"; }
+
+    Mod+Ctrl+Alt+Down allow-when-locked=true { spawn-sh "dms ipc call brightness decrement 10 ''"; }
+    Mod+Ctrl+Alt+Up allow-when-locked=true { spawn-sh "dms ipc call brightness increment 10 ''"; }
+    // Change volume
+    XF86AudioLowerVolume allow-when-locked=true { spawn-sh "dms ipc call audio decrement 5"; }
+    XF86AudioRaiseVolume allow-when-locked=true { spawn-sh "dms ipc call audio increment 5"; }
+
+    XF86AudioMute        repeat=false allow-when-locked=true { spawn-sh "dms ipc call audio mute"; }
+    XF86AudioMicMute     repeat=false allow-when-locked=true { spawn-sh "dms ipc call audio micmute"; }
+
+    Ctrl+Alt+Left allow-when-locked=true { spawn-sh "dms ipc call audio decrement 5"; }
+    Ctrl+Alt+Right allow-when-locked=true { spawn-sh "dms ipc call audio increment 5"; }
+
+    Ctrl+Alt+WheelScrollDown cooldown-ms=150 allow-when-locked=true { spawn-sh "dms ipc call audio decrement 5"; }
+    Ctrl+Alt+WheelScrollUp cooldown-ms=150 allow-when-locked=true { spawn-sh "dms ipc call audio increment 5"; }
+
+    Ctrl+Alt+Space repeat=false allow-when-locked=true { spawn-sh "dms ipc call audio mute"; }
+    Ctrl+Shift+Space repeat=false allow-when-locked=true { spawn-sh "dms ipc call audio micmute"; }
+
+    Mod+TouchpadScrollDown { spawn "dms ipc call audio decrement 5"; }
+    Mod+TouchpadScrollUp     { spawn "dms ipc call audio increment 5"; }
+    // Media control
+    XF86AudioPause repeat=false allow-when-locked=true { spawn-sh "dms ipc call mpris pause"; }
+    XF86AudioPlay repeat=false allow-when-locked=true { spawn-sh "dms ipc call mpris playPause"; }
+    XF86AudioStop repeat=false allow-when-locked=true { spawn-sh "dms ipc call mpris stop"; }
+    XF86AudioPrev repeat=false allow-when-locked=true { spawn-sh "dms ipc call mpris previous"; }
+    XF86AudioNext repeat=false allow-when-locked=true { spawn-sh "dms ipc call mpris next"; }
+
+    /* Resize */
+    Mod+R { switch-preset-column-width; }
+    Mod+Shift+R { switch-preset-window-height; }
+    Mod+Ctrl+R { reset-window-height; }
+
+    Mod+F { maximize-column; }
+    Mod+Ctrl+F { expand-column-to-available-width; }
+    Mod+Shift+F { fullscreen-window; }
+
+    Mod+Minus { set-column-width "-10%"; }
+    Mod+Equal { set-column-width "+10%"; }
+    Mod+Shift+Minus { set-window-height "-10%"; }
+    Mod+Shift+Equal { set-window-height "+10%"; }
+
+    /* Focus */
+    Mod+Home { focus-column-first; }
+    Mod+End    { focus-column-last; }
+    Mod+1 { focus-workspace 1; }
+    Mod+2 { focus-workspace 2; }
+    Mod+3 { focus-workspace 3; }
+    Mod+4 { focus-workspace 4; }
+    Mod+5 { focus-workspace 5; }
+    Mod+6 { focus-workspace 6; }
+    Mod+7 { focus-workspace 7; }
+    Mod+8 { focus-workspace 8; }
+    Mod+9 { focus-workspace 9; }
+    Mod+Shift+U                { focus-workspace-down; }
+    Mod+Shift+I                { focus-workspace-up; }
+
+    Mod+WheelScrollLeft cooldown-ms=150 { focus-column-left; }
+    Mod+WheelScrollRight cooldown-ms=150 { focus-column-right; }
+    Mod+Shift+WheelScrollDown cooldown-ms=150 { focus-workspace-down; }
+    Mod+Shift+WheelScrollUp cooldown-ms=150 { focus-workspace-up; }
+
+    Mod+H     { focus-column-left; }
+    Mod+J     { focus-window-down; }
+    Mod+K     { focus-window-up; }
+    Mod+L     { focus-column-right; }
+
+    Mod+Shift+H     { focus-monitor-left; }
+    Mod+Shift+J     { focus-monitor-down; }
+    Mod+Shift+K     { focus-monitor-up; }
+    Mod+Shift+L     { focus-monitor-right; }
+
+    Mod+C { center-column; }
+    Mod+Ctrl+C { center-visible-columns; }
+    Mod+W { toggle-column-tabbed-display; }
+
+    /* Move */
+    Mod+Ctrl+Home { move-column-to-first; }
+    Mod+Ctrl+End    { move-column-to-last; }
+    Mod+Ctrl+1 { move-column-to-workspace 1; }
+    Mod+Ctrl+2 { move-column-to-workspace 2; }
+    Mod+Ctrl+3 { move-column-to-workspace 3; }
+    Mod+Ctrl+4 { move-column-to-workspace 4; }
+    Mod+Ctrl+5 { move-column-to-workspace 5; }
+    Mod+Ctrl+6 { move-column-to-workspace 6; }
+    Mod+Ctrl+7 { move-column-to-workspace 7; }
+    Mod+Ctrl+8 { move-column-to-workspace 8; }
+    Mod+Ctrl+9 { move-column-to-workspace 9; }
+    Mod+Ctrl+U         { move-column-to-workspace-down; }
+    Mod+Ctrl+I         { move-column-to-workspace-up; }
+
+    // Mod+Shift+U         { move-workspace-down; }
+    // Mod+Shift+I         { move-workspace-up; }
+
+    Mod+Ctrl+H     { move-column-left; }
+    Mod+Ctrl+J     { move-window-down; }
+    Mod+Ctrl+K     { move-window-up; }
+    Mod+Ctrl+L     { move-column-right; }
+
+    Mod+Ctrl+WheelScrollLeft cooldown-ms=150  { move-column-left; }
+    Mod+Ctrl+WheelScrollRight cooldown-ms=150 { move-column-right; }
+    Mod+Ctrl+WheelScrollDown cooldown-ms=150 { move-column-to-workspace-down; }
+    Mod+Ctrl+WheelScrollUp  cooldown-ms=150 { move-column-to-workspace-up; }
+
+    Mod+Shift+Ctrl+H     { move-column-to-monitor-left; }
+    Mod+Shift+Ctrl+J     { move-column-to-monitor-down; }
+    Mod+Shift+Ctrl+K     { move-column-to-monitor-up; }
+    Mod+Shift+Ctrl+L     { move-column-to-monitor-right; }
+
+    // Mod+Shift+Ctrl+Left    { move-window-to-monitor-left; }
+    // Mod+Shift+Ctrl+Left    { move-workspace-to-monitor-left; }
+    // Mod+Ctrl+1 { move-window-to-workspace 1; }
+    // Mod+Ctrl+Page_Down { move-window-to-workspace-down; }
+
+    /* Float */
+    Mod+Z         { toggle-window-floating; }
+    Mod+Shift+Z { switch-focus-between-floating-and-tiling; }
+
+    // Mod+Space         { switch-layout "next"; }
+    // Mod+Shift+Space { switch-layout "prev"; }
+
+    // 以下绑定可将焦点窗口在列中向内或向外移动
+    // 如果窗口是单独的,它们会将其吸入旁边的附近柱子中
+    // 如果窗口已经在一个列中,他们将把它推出去.
+    Mod+BracketLeft    { consume-or-expel-window-left; }
+    Mod+BracketRight { consume-or-expel-window-right; }
+    // 从右侧到焦点列的底部消耗一个窗口
+    Mod+Comma    { consume-window-into-column; }
+    // 将聚焦列底部窗口移到右侧
+    Mod+Period { expel-window-from-column; }
+}
+
+include "dms/binds.kdl"
+
+layout {
+    // 平铺窗口间隙
+    gaps 12
+    background-color "transparent"
+    // 居中单个列
+    always-center-single-column
+    center-focused-column "never"
+    default-column-display "tabbed"
+
+    default-column-width { proportion 0.5; }
+
+    preset-column-widths {
+        proportion 0.5
+        proportion 0.2444
+        proportion 0.7556
+    }
+
+    preset-window-heights {
+        proportion 0.5
+        proportion 0.8
+        proportion 1.0
+    }
+
+    border {
+        off
+    }
+
+    focus-ring {
+        off
+    }
+
+    // 控制选项卡显示模式下列旁边显示的选项卡指示符的外观
+    tab-indicator {
+        // off
+        hide-when-single-tab
+        place-within-column
+        gap 4
+        gaps-between-tabs 4
+        corner-radius 4
+        width 10
+        length total-proportion=0.999
+        position "left"
+        active-color "#cdd6f453"
+        inactive-color "#1e1e2e93"
+    }
+
+    // 工作区边界间隙
+    struts {
+        // top -8
+    }
+
+    shadow {
+        off
+    }
+}
+
+overview {
+    zoom 0.5
+}
+
+animations {
+    screenshot-ui-open {
+        duration-ms 200
+        curve "ease-out-quad"
+    }
+
+    overview-open-close {
+        spring damping-ratio=0.6 stiffness=500 epsilon=0.0001
+    }
+
+    recent-windows-close {
+        spring damping-ratio=0.6 stiffness=500 epsilon=0.0001
+    }
+
+    workspace-switch {
+        spring damping-ratio=0.6 stiffness=500 epsilon=0.0001
+    }
+
+    window-resize {
+        spring damping-ratio=0.6 stiffness=500 epsilon=0.0001
+    }
+
+    horizontal-view-movement {
+        spring damping-ratio=0.8 stiffness=500 epsilon=0.0001
+    }
+
+    window-movement {
+        spring damping-ratio=0.6 stiffness=500 epsilon=0.0001
+    }
+
+    window-open {
+        duration-ms 200
+        curve "ease-out-quad"
+        custom-shader r"
+            vec4 fade_float_up(vec3 coords_geo, vec3 size_geo) {
+                vec3 coords_tex = niri_geo_to_tex * coords_geo;
+                vec4 color = texture2D(niri_tex, coords_tex.st);
+
+                float p = niri_clamped_progress;
+
+                // 计算缩放中心点
+                vec2 center = vec2(0.5, 0.5);
+
+                // 应用缩放效果
+                coords_tex.st = mix(center, coords_tex.st, 0.8 + 0.2 * p);
+
+                // 上浮效果
+                coords_tex.y -= (1.0 - p) * 0.1;
+
+                // 重新采样考虑变换后的纹理
+                vec4 shifted_color = texture2D(niri_tex, coords_tex.st);
+
+                // 淡入效果
+                return shifted_color * p;
+            }
+
+            // This is the function that you must define.
+            vec4 open_color(vec3 coords_geo, vec3 size_geo) {
+                return fade_float_up(coords_geo, size_geo);
+            }
+        "
+    }
+
+    window-close {
+        duration-ms 200
+        curve "ease-out-quad"
+        custom-shader r"
+            vec4 fall_and_rotate(vec3 coords_geo, vec3 size_geo) {
+                // For this shader, set animation curve to linear for best results.
+
+                // Simulate an accelerated fall: square the (linear) progress.
+                float progress = niri_clamped_progress * niri_clamped_progress;
+
+                // Get our rotation pivot point coordinates at the bottom center of the window.
+                vec2 coords = (coords_geo.xy - vec2(0.5, 1.0)) * size_geo.xy;
+
+                // Move the window down to simulate a fall.
+                coords.y -= progress * 200.0;
+
+                // Randomize rotation direction and maximum angle.
+                float random = (niri_random_seed - 0.5) / 2.0;
+                random = sign(random) - random;
+                float max_angle = 0.05 * random;
+
+                // Rotate the window around our pivot point.
+                float angle = progress * max_angle;
+                mat2 rotate = mat2(cos(angle), -sin(angle), sin(angle), cos(angle));
+                coords = rotate * coords;
+
+                // Transform the coordinates back.
+                coords_geo = vec3(coords / size_geo.xy + vec2(0.5, 1.0), 1.0);
+
+                // Sample the window texture.
+                vec3 coords_tex = niri_geo_to_tex * coords_geo;
+                vec4 color = texture2D(niri_tex, coords_tex.st);
+
+                // Multiply by alpha to fade out.
+                return color * (1.0 - niri_clamped_progress);
+            }
+
+            // This is the function that you must define.
+            vec4 close_color(vec3 coords_geo, vec3 size_geo) {
+                // You can pick one of the example functions or write your own.
+                return fall_and_rotate(coords_geo, size_geo);
+            }
+        "
+    }
+}
+
+/* Layer rule */
+// 将 swaybg 放置在 Overview （概述 ） 和工作区之间可见的背景中
+layer-rule {
+    match namespace="^awww-daemon$"
+    match namespace="^mpvpaper$"
+    match namespace="^quickshell$"
+    match namespace="^swww-daemon$"
+    match namespace="^wallpaper$"
+    match namespace="^wayvid$"
+    match namespace="awww-daemonoverview"
+    match namespace="dms:blurwallpaper"
+    place-within-backdrop true
+}
+
+layer-rule {
+    match namespace="^launcher$"
+    opacity 0.93
+}
+
+// 截屏屏蔽 mako 的通知
+layer-rule {
+    match namespace="^notifications$"
+    block-out-from "screencast"
+}
+
+/* Window rule */
+window-rule {
+    geometry-corner-radius 16
+    clip-to-geometry true
+    draw-border-with-background false
+    // min-height 100
+    // min-width 200
+}
+
+window-rule {
+    // match app-id="^cromite$"
+    // match app-id="com.mitchellh.ghostty"
+    // match app-id="thorium-browser"
+    exclude title="图片和视频"
+    exclude title="图片查看器"
+    exclude title="媒体查看器"
+    exclude title="画中画"
+    exclude title="聊天记录"
+    match app-id="LM-Studio"
+    match app-id="^DBeaver$"
+    match app-id="^ONLYOFFICE$"
+    match app-id="^QQ$"
+    match app-id="^SJMCL$"
+    match app-id="^SPlayer$"
+    match app-id="^VutronMusic$"
+    match app-id="^code$"
+    match app-id="^jetbrains-.*"
+    match app-id="^obsidian$"
+    match app-id="^sparkle$"
+    match app-id="^wechat$"
+    match app-id="com.afalphy.particle_music"
+    match app-id="com.gitee.gmg137.NeteaseCloudMusicGtk4"
+    match app-id="io.missioncenter.MissionCenter"
+    match app-id="net.nokyan.Resources"
+    match app-id="open-orpheus"
+    match app-id="org.freesmTeam.freesmlauncher"
+    match app-id="org.gnome.Settings"
+    match app-id="org.pwmt.zathura"
+    match app-id="visual-studio-code-electron"
+    match app-id=r#".*gram$|.*gram\.desktop$|tdesktop"#
+    match title="新标签页"
+    opacity 0.9
+    background-effect {
+        blur false
+        // xray true
+    }
+}
+
+/-window-rule {
+    exclude app-id="org.wezfurlong.wezterm"
+    exclude title="哔哩哔哩"
+    exclude title="图片和视频"
+    exclude title="图片查看器"
+    exclude title="媒体查看器"
+    exclude title="画中画"
+    exclude title="聊天记录"
+    opacity 0.93
+}
+
+window-rule {
+    match app-id=".*browser$"
+    match app-id="LM-Studio"
+    match app-id="VirtualBox Manager"
+    match app-id="^DBeaver$"
+    match app-id="^ONLYOFFICE$"
+    match app-id="^SJMCL$"
+    match app-id="^SPlayer$"
+    match app-id="^blender$"
+    match app-id="^chromium$"
+    match app-id="^code$"
+    match app-id="^cromite$"
+    match app-id="^et$"
+    match app-id="^gimp$"
+    match app-id="^jetbrains-.*"
+    match app-id="^kitty$"
+    match app-id="^krita$"
+    match app-id="^libreoffice-"
+    match app-id="^obsidian$"
+    match app-id="^pdf$"
+    match app-id="^rio$"
+    match app-id="^steam$"
+    match app-id="^wpp$"
+    match app-id="^wps$"
+    match app-id="^wpsoffice$"
+    match app-id="^zen$"
+    match app-id="com.afalphy.particle_music"
+    match app-id="com.mitchellh.ghostty"
+    match app-id="io.missioncenter.MissionCenter"
+    match app-id="microsoft-edge"
+    match app-id="moe.tsuna.tsukimi"
+    match app-id="net.nokyan.Resources"
+    match app-id="open-orpheus"
+    match app-id="org.freecad.FreeCAD"
+    match app-id="org.kde.kdenlive"
+    match app-id="org.kde.krita"
+    match app-id="org.pwmt.zathura"
+    match app-id="org.shotcut.Shotcut"
+    match app-id="org.wezfurlong.wezterm"
+    match app-id="visual-studio-code-electron"
+    open-fullscreen false
+    open-maximized true
+}
+
+window-rule{
+    match app-id="bluetui"
+    match app-id="clipse"
+    match app-id="nmtui"
+    match app-id="systemctl-tui"
+    match app-id="wiremix"
+    open-floating true
+    default-column-width { proportion 0.7; }
+    default-window-height { proportion 0.6; }
+}
+
+window-rule {
+    match app-id="^blueman-manager$"
+    match app-id="^fcitx$" title="Fcitx5 Input Window"
+    match app-id="^firefox$" title="^Picture-in-Picture$"
+    match app-id="^flameshot$"
+    match app-id="^galculator$"
+    match app-id="^gnome-calculator$"
+    match app-id="^mpv$"
+    match app-id="^steam$" title="Friends List"
+    match app-id="^thunar$" title="文件操作进度"
+    match app-id="^waypaper$"
+    match app-id="^xdg-desktop-portal$"
+    match app-id="be.alexandervanhee.gradia"
+    match app-id="blueberry.py" title="蓝牙"
+    match app-id="clipse-gui"
+    match app-id="com.github.hluk.copyq"
+    match app-id="fcitx" title="Fcitx5 Input Window"
+    match app-id="moe.tsuna.tsukimi"
+    match app-id="net.lutris.Lutris"
+    match app-id="nm-connection-editor"
+    match app-id="org.gnome.FileRoller"
+    match app-id="org.gnome.Loupe"
+    match app-id="org.gnome.Nautilus"
+    match app-id="org.gnome.Settings"
+    match app-id="org.gnome.Snapshot"
+    match app-id="org.gnome.clocks" title="时钟"
+    match app-id="org.pulseaudio.pavucontrol" title="音量控制"
+    match app-id=r#"org.quickshell$"#
+    match title="图片和视频"
+    match title="图片查看器"
+    match title="媒体查看器"
+    match title="日历"
+    match title="画中画"
+    match title="群聊的聊天记录"
+    match title="聊天记录"
+    match title="重命名"
+    open-fullscreen false
+    open-floating true
+}
+
+window-rule {
+    // match app-id=".*exe$"
+    match app-id="^Waydroid$"
+    match app-id="^gamescope$"
+    match app-id="^steam_app_.*"
+    open-fullscreen true
+}
+
+window-rule {
+    match app-id="^nemo$"
+    match app-id="moe.tsuna.tsukimi"
+    match app-id="net.lutris.Lutris"
+    match app-id="org.gnome.Nautilus"
+    match app-id="org.gnome.Settings"
+    match title="图片和视频"
+    match title="图片查看器"
+    match title="媒体查看器"
+    default-column-width { fixed 1280; }
+    default-window-height { fixed 960; }
+}
+
+window-rule {
+    match app-id="^fcitx$"
+    open-focused false
+}
+
+/-window-rule {
+    match app-id="^gamescope$"
+    match app-id="^mpv$"
+    variable-refresh-rate true
+}
+
+window-rule {
+    match app-id="org.pulseaudio.pavucontrol"
+    default-column-width { fixed 968; }
+    default-window-height { fixed 633; }
+}
+
+include "dms/windowrules.kdl"

@@ -1,0 +1,21 @@
+[Unit]
+Description=mihomo Daemon, Another Clash Kernel.
+Wants=network-online.target
+After=network.target NetworkManager.service systemd-networkd.service iwd.service network-online.target
+
+[Service]
+Type=simple
+User=cat
+LimitNPROC=500
+LimitNOFILE=1000000
+CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_RAW CAP_NET_BIND_SERVICE CAP_SYS_TIME CAP_SYS_PTRACE CAP_DAC_READ_SEARCH CAP_DAC_OVERRIDE
+AmbientCapabilities=CAP_NET_ADMIN CAP_NET_RAW CAP_NET_BIND_SERVICE CAP_SYS_TIME CAP_SYS_PTRACE CAP_DAC_READ_SEARCH CAP_DAC_OVERRIDE
+Environment=SAFE_PATHS=/usr/share/zashboard
+Restart=on-failure
+RestartSec=5
+ExecStartPre=/usr/bin/sleep 2
+ExecStart=/usr/bin/mihomo -d /home/deck/.config/mihomo -f /home/deck/.config/mihomo/config.yaml
+ExecReload=/bin/kill -HUP $MAINPID
+
+[Install]
+WantedBy=multi-user.target

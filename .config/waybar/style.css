@@ -1,0 +1,85 @@
+/*
+*
+* Catppuccin Mocha palette
+* Maintainer: rubyowo
+*
+*/
+* {
+  font-family: "Maple Mono NF CN";
+  font-size: 18px;
+}
+
+#waybar {
+  color: #cdd6f4;
+  background: transparent;
+}
+
+#privacy,
+#mpris,
+#tray,
+#power-profiles-daemon,
+#clock,
+#pulseaudio,
+#network,
+#bluetooth,
+#custom-brightness {
+  background-color: rgba(30, 30, 46, 0.58);
+  padding-left: 8px;
+  padding-right: 8px;
+}
+#privacy:hover,
+#mpris:hover,
+#tray:hover,
+#power-profiles-daemon:hover,
+#clock:hover,
+#pulseaudio:hover,
+#network:hover,
+#bluetooth:hover,
+#custom-brightness:hover {
+  color: #f2cdcd;
+}
+
+#workspaces {
+  background-color: rgba(30, 30, 46, 0.58);
+  border-radius: 0 0 16px 16px;
+  margin-left: 12px;
+}
+#workspaces button {
+  padding-left: 10px;
+  padding-right: 10px;
+  color: #cdd6f4;
+}
+#workspaces button.active {
+  color: #f2cdcd;
+}
+
+#privacy {
+  border-radius: 0 0 16px 16px;
+  margin-left: 12px;
+}
+
+#mpris {
+  border-radius: 0 0 16px 16px;
+  margin-left: 12px;
+  margin-right: 12px;
+  padding-left: 12px;
+  padding-right: 12px;
+}
+
+#tray {
+  border-radius: 0 0 16px 16px;
+  margin-right: 12px;
+  padding-left: 12px;
+  padding-right: 12px;
+}
+
+#clock {
+  border-radius: 0 0 0 16px;
+  padding-left: 12px;
+}
+
+#custom-brightness {
+  border-radius: 0 0 16px 0;
+  margin-right: 12px;
+  padding-right: 24px;
+}/*# sourceMappingURL=style.css.map */

@@ -1,0 +1,9 @@
+{
+  "start_hidden": true,
+  "layer": "top", // 决定栏是显示在窗口的前面（top）还是在它们后面（bottom）
+  "position": "top", // Waybar position (top|bottom|left|right)
+  "include": ["modules-left.jsonc", "modules-center.jsonc", "modules-right.jsonc"],
+  "modules-left": ["niri/workspaces", "privacy"],
+  "modules-center": ["mpris"],
+  "modules-right": ["tray", "clock", "power-profiles-daemon", "pulseaudio", "network", "bluetooth", "custom/brightness"]
+}

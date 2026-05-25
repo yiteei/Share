@@ -1,0 +1,80 @@
+* {
+    background-image: none;
+    font-size: 1.25rem;
+}
+
+window {
+    background-color: rgba(0, 0, 0, 0.5);
+}
+
+button {
+    margin: 0;
+    padding: 0;
+    color: #ffffff;
+    background-color: rgba(30, 30, 46, 0.8);
+    outline-style: none;
+    border: none;
+    border-width: 0;
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: 20%;
+    border-radius: 0;
+    box-shadow: none;
+    text-shadow: none;
+
+    &:focus {
+        background-color: rgba(30, 30, 46, 0.8);
+        background-size: 20%;
+    }
+
+    &:hover {
+        background-color: #1e1e2e93;
+        background-size: 25%;
+        border-radius: 1.25rem;
+        transition: all 0.3s cubic-bezier(0.55, 0, 0.28, 1.682);
+    }
+
+    &:hover#lock {
+        border-radius: 2.5rem 2.5rem 0 2.5rem;
+        margin: 9.375rem 0 0 34.375rem;
+    }
+
+    &:hover#logout {
+        border-radius: 2.5rem 0 2.5rem 2.5rem;
+        margin: 0 0 9.375rem 34.375rem;
+    }
+
+    &:hover#shutdown {
+        border-radius: 2.5rem 2.5rem 2.5rem 0;
+        margin: 9.375rem 34.375rem 0 0;
+    }
+
+    &:hover#reboot {
+        border-radius: 0 2.5rem 2.5rem 2.5rem;
+        margin: 0 34.375rem 9.375rem 0;
+    }
+}
+
+#lock {
+    background-image: image(url('/usr/share/wlogout/icons/lock.png'), url('/usr/local/share/wlogout/icons/lock.png'));
+    border-radius: 3.75rem 0 0 0;
+    margin: 12.5rem 0 0 37.5rem;
+}
+
+#logout {
+    background-image: image(url('/usr/share/wlogout/icons/logout.png'), url('/usr/local/share/wlogout/icons/logout.png'));
+    border-radius: 0 0 0 3.75rem;
+    margin: 0 0 12.5rem 37.5rem;
+}
+
+#shutdown {
+    background-image: image(url('/usr/share/wlogout/icons/shutdown.png'), url('/usr/local/share/wlogout/icons/shutdown.png'));
+    border-radius: 0 3.75rem 0 0;
+    margin: 12.5rem 37.5rem 0 0;
+}
+
+#reboot {
+    background-image: image(url('/usr/share/wlogout/icons/reboot.png'), url('/usr/local/share/wlogout/icons/reboot.png'));
+    border-radius: 0 0 3.75rem 0;
+    margin: 0 37.5rem 12.5rem 0;
+}

@@ -1,0 +1,260 @@
+log-level: debug
+mode: rule
+
+ipv6: true
+unified-delay: false
+tcp-concurrent: true
+keep-alive-interval: 0
+keep-alive-idle: 0
+
+allow-lan: true
+bind-address: '*'
+
+tproxy-port: 1234
+mixed-port: 2234
+skip-auth-prefixes: [127.0.0.1/32, '::1/128']
+
+external-ui: /usr/share/zashboard
+external-controller: 127.0.0.1:9494
+external-controller-cors:
+    allow-origins: [127.0.0.1]
+    allow-private-network: false
+
+profile:
+    store-selected: true
+    store-fake-ip: false
+
+sniffer:
+    enable: true
+    force-dns-mapping: true
+    parse-pure-ip: true
+    sniff: { TLS: { ports: [443, 8443] }, QUIC: { ports: [443, 8443] }, HTTP: { ports: [80, 8080-8880] } }
+    skip-domain:
+        - '+.push.apple.com'
+        - 'Mijia Cloud'
+        - 'dlg.io.mi.com'
+
+hosts:
+    'trpc.o3.*': 127.0.0.1
+    'iosapps.itunes.apple.com': iosapps.itunes.apple.com.m.alikunlun.net
+    'services.googleapis.cn': services.googleapis.com
+    'www.google.cn': www.google.com
+    'www.g.cn': www.google.com
+    'maps.google.cn': maps.google.com
+    'ditu.google.cn': maps.google.com
+
+dns:
+    enable: true
+    ipv6: true
+    listen: 0.0.0.0:5353
+    respect-rules: true
+    enhanced-mode: redir-host
+    proxy-server-nameserver: &dnsin [https://dns.alidns.com/dns-query#h3=true, https://doh.pub/dns-query]
+    nameserver: &dnsout [https://cloudflare-dns.com/dns-query#h3=true, https://dns.google/dns-query]
+    nameserver-policy: { 'rule-set:site_private': system, 'rule-set:site_cn': *dnsin }
+    direct-nameserver: *dnsin
+    direct-nameserver-follow-policy: true
+
+tun:
+    enable: false
+
+listeners:
+    - { name: in_mixed, type: mixed, port: 8484, udp: true, listen: 0.0.0.0 }
+
+proxies:
+    - { name: dns-hijack, type: dns }
+    - { name: enp8s0, type: direct, interface-name: 'enp8s0' }
+    - { name: wlan0, type: direct, interface-name: 'wlan0' }
+    - { name: 以太网, type: direct, interface-name: '以太网' }
+    - { name: WLAN, type: direct, interface-name: 'WLAN' }
+
+proxy-providers-anchor:
+    - &inline-base
+      proxy: Update
+      interval: 43200
+      exclude-type: 'direct'
+      health-check: { enable: true, url: 'https://connectivitycheck.android.com/generate_204', interval: 6, timeout: 3500, expected-status: 204 }
+      header: { User-Agent: ['mihomo/99.99.99 clash.meta/99.99.99 ClashMeta/99.99.99 meta/99.99.99 FlClash/99.99.99 clash-verge/99.99.99'] }
+
+proxy-providers:
+    provider_1:
+        type: http
+        path: ./proxies/provider_1.yaml
+        url: ''
+        <<: *inline-base
+        override: &override { additional-prefix: 'A-', tfo: true, mptcp: true, udp: true }
+    provider_2:
+        type: http
+        path: ./proxies/provider_2.yaml
+        url: ''
+        <<: *inline-base
+        override: { additional-prefix: 'B-', <<: *override }
+    provider_3:
+        type: http
+        path: ./proxies/provider_3.yaml
+        url: ''
+        <<: *inline-base
+        override: { additional-prefix: 'C-', <<: *override }
+    provider_4:
+        type: http
+        path: ./proxies/provider_4.yaml
+        url: ''
+        <<: *inline-base
+        override: { additional-prefix: 'D-', <<: *override }
+    provider_Baidu:
+        type: inline
+        health-check: { enable: true, url: 'https://connectivitycheck.platform.hicloud.com/generate_204', interval: 6, timeout: 3500, expected-status: 204 }
+        payload:
+            - { name: 北京北京-CT 1, type: http, server: 220.181.7.1, port: 443, headers: &direct_baidu { Host: ascdn.baidu.com, User-Agent: baiduboxapp, Connection: Keep-Aliv, X-T5-Auth: '1951164069' } }
+            - { name: 北京北京-CT 2, type: http, server: 220.181.33.174, port: 443, headers: *direct_baidu }
+            - { name: 北京北京-CT 3, type: http, server: 220.181.111.189, port: 443, headers: *direct_baidu }
+            - { name: 广东东莞-CM, type: http, server: 183.240.98.84, port: 443, headers: *direct_baidu }
+            - { name: 广东广州-CT, type: http, server: 14.215.182.75, port: 443, headers: *direct_baidu }
+            - { name: 广东广州-CU 1, type: http, server: 163.177.17.6, port: 443, headers: *direct_baidu }
+            - { name: 广东广州-CU 2, type: http, server: 163.177.17.189, port: 443, headers: *direct_baidu }
+            - { name: 江苏南京-CM, type: http, server: 36.155.169.188, port: 443, headers: *direct_baidu }
+            - { name: 江苏南京-CT 1, type: http, server: 180.101.50.208, port: 443, headers: *direct_baidu }
+            - { name: 江苏南京-CT 2, type: http, server: 180.101.50.249, port: 443, headers: *direct_baidu }
+            - { name: 江苏南京-CU, type: http, server: 153.3.237.117, port: 443, headers: *direct_baidu }
+            - { name: 江苏苏州-CU, type: http, server: 157.0.146.158, port: 443, headers: *direct_baidu }
+            - { name: 河北保定-CU 1, type: http, server: 110.242.70.68, port: 443, headers: *direct_baidu }
+            - { name: 河北保定-CU 2, type: http, server: 110.242.70.69, port: 443, headers: *direct_baidu }
+        override: { additional-prefix: 'Baidu-' }
+
+proxy-groups-anchor:
+    type_anchor:
+        - &type_ut { type: url-test, url: 'https://connectivitycheck.android.com/generate_204', interval: 6, timeout: 3500, max-failed-times: 2, expected-status: 204, tolerance: 20 }
+        - &type_fb { type: fallback, url: 'https://connectivitycheck.android.com/generate_204', interval: 6, timeout: 3500, max-failed-times: 2, expected-status: 204 }
+        - &type_lb-rr { type: load-balance, strategy: round-robin, url: 'https://connectivitycheck.android.com/generate_204', interval: 6, timeout: 3500, max-failed-times: 2, expected-status: 204 }
+    proxies_anchor:
+        - &rule { proxies: [PASS, Proxy, Local, 香港, 台湾, 韩国, 日本, 狮城, 美国] }
+        - &direct { proxies: [Local, Proxy, PASS, 香港, 台湾, 韩国, 日本, 狮城, 美国] }
+        - &proxy { proxies: [Proxy, Local, PASS, 香港, 台湾, 韩国, 日本, 狮城, 美国] }
+        - &out { proxies: [香港, 台湾, 韩国, 日本, 狮城, 美国] }
+        - &reject { proxies: [REJECT, REJECT-DROP, PASS] }
+    filter_anchor:
+        - &filter_hk '(?:🇭🇰|港|(?i:\b(?:hk|hkg|hong|hongkong)\b))'
+        - &filter_jp '(?:🇯🇵|日|(?i:\b(?:jp|jpn|japan)\b))'
+        - &filter_kr '(?:🇰🇷|韩|(?i:\b(?:kr|kor|korea|South\s*Korea)\b))'
+        - &filter_sg '(?:🇸🇬|新|狮|(?i:\b(?:sg|sgp|singapore)\b))'
+        - &filter_tw '(?:🇹🇼|台|(?i:\b(?:tw|twn|tai|taiwan)\b))'
+        - &filter_us '(?:🇺🇸|美|(?i:\b(?:us|usa|united\s*states)\b))'
+
+proxy-groups:
+    - { name: Proxy, type: select, proxies: [Fallback, Local, 香港, 台湾, 韩国, 日本, 狮城, 美国], icon: 'https://testingcf.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Final.png' }
+    - { name: Local, type: select, proxies: [DIRECT, enp8s0 + wlan0, enp8s0, wlan0, 以太网 + WLAN, 以太网, WLAN, Baidu LR], use: [provider_Baidu], url: 'https://connectivitycheck.platform.hicloud.com/generate_204', expected-status: 204, icon: 'https://testingcf.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/China_Map.png' }
+    - { name: FlexiRule, type: select, <<: *rule, icon: 'https://testingcf.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Heart.png' }
+    - { name: Telegram, type: select, <<: *proxy, icon: 'https://testingcf.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Telegram.png' }
+    - { name: YouTube, type: select, <<: *proxy, icon: 'https://testingcf.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/YouTube.png' }
+    - { name: LModel, type: select, <<: *proxy, icon: 'https://testingcf.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/ChatGPT.png' }
+    - { name: OneDrive, type: select, <<: *direct, icon: 'https://testingcf.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/OneDrive.png' }
+    - { name: GamePl, type: select, <<: *direct, icon: 'https://testingcf.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Game.png' }
+    - { name: WebRTC, type: select, <<: *reject, icon: 'https://testingcf.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Area.png' }
+    - { name: InMixed, type: select, <<: *rule, icon: 'https://testingcf.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Server.png' }
+    - { name: Advert, type: select, <<: *reject, icon: 'https://testingcf.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Advertising.png' }
+    - { name: Update, type: select, proxies: [Local, Proxy], icon: 'https://testingcf.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Stack.png' }
+    - { name: 香港, <<: *type_fb, proxies: [香港 A, 香港 B, 香港 C, 香港 D], icon: 'https://testingcf.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Hong_Kong.png' }
+    - { name: 香港 A, <<: *type_ut, use: [provider_1], filter: *filter_hk, hidden: true }
+    - { name: 香港 B, <<: *type_ut, use: [provider_2], filter: *filter_hk, hidden: true }
+    - { name: 香港 C, <<: *type_ut, use: [provider_3], filter: *filter_hk, hidden: true }
+    - { name: 香港 D, <<: *type_ut, use: [provider_4], filter: *filter_hk, hidden: true }
+    - { name: 台湾, <<: *type_fb, proxies: [台湾 A, 台湾 B, 台湾 C, 台湾 D], icon: 'https://testingcf.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Taiwan.png' }
+    - { name: 台湾 A, <<: *type_ut, use: [provider_1], filter: *filter_tw, hidden: true }
+    - { name: 台湾 B, <<: *type_ut, use: [provider_2], filter: *filter_tw, hidden: true }
+    - { name: 台湾 C, <<: *type_ut, use: [provider_3], filter: *filter_tw, hidden: true }
+    - { name: 台湾 D, <<: *type_ut, use: [provider_4], filter: *filter_tw, hidden: true }
+    - { name: 韩国, <<: *type_fb, proxies: [韩国 A, 韩国 B, 韩国 C, 韩国 D], icon: 'https://testingcf.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Korea.png' }
+    - { name: 韩国 A, <<: *type_ut, use: [provider_1], filter: *filter_kr, hidden: true }
+    - { name: 韩国 B, <<: *type_ut, use: [provider_2], filter: *filter_kr, hidden: true }
+    - { name: 韩国 C, <<: *type_ut, use: [provider_3], filter: *filter_kr, hidden: true }
+    - { name: 韩国 D, <<: *type_ut, use: [provider_4], filter: *filter_kr, hidden: true }
+    - { name: 日本, <<: *type_fb, proxies: [日本 A, 日本 B, 日本 C, 日本 D], icon: 'https://testingcf.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Japan.png' }
+    - { name: 日本 A, <<: *type_ut, use: [provider_1], filter: *filter_jp, hidden: true }
+    - { name: 日本 B, <<: *type_ut, use: [provider_2], filter: *filter_jp, hidden: true }
+    - { name: 日本 C, <<: *type_ut, use: [provider_3], filter: *filter_jp, hidden: true }
+    - { name: 日本 D, <<: *type_ut, use: [provider_4], filter: *filter_jp, hidden: true }
+    - { name: 狮城, <<: *type_fb, proxies: [狮城 A, 狮城 B, 狮城 C, 狮城 D], icon: 'https://testingcf.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Singapore.png' }
+    - { name: 狮城 A, <<: *type_ut, use: [provider_1], filter: *filter_sg, hidden: true }
+    - { name: 狮城 B, <<: *type_ut, use: [provider_2], filter: *filter_sg, hidden: true }
+    - { name: 狮城 C, <<: *type_ut, use: [provider_3], filter: *filter_sg, hidden: true }
+    - { name: 狮城 D, <<: *type_ut, use: [provider_4], filter: *filter_sg, hidden: true }
+    - { name: 美国, <<: *type_fb, proxies: [美国 A, 美国 B, 美国 C, 美国 D], icon: 'https://testingcf.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/United_States.png' }
+    - { name: 美国 A, <<: *type_ut, use: [provider_1], filter: *filter_us, hidden: true }
+    - { name: 美国 B, <<: *type_ut, use: [provider_2], filter: *filter_us, hidden: true }
+    - { name: 美国 C, <<: *type_ut, use: [provider_3], filter: *filter_us, hidden: true }
+    - { name: 美国 D, <<: *type_ut, use: [provider_4], filter: *filter_us, hidden: true }
+    - { name: Fallback, <<: [*type_fb, *out], hidden: true }
+    - { name: enp8s0 + wlan0, url: 'https://connectivitycheck.platform.hicloud.com/generate_204', <<: *type_lb-rr, proxies: [enp8s0, wlan0], hidden: true }
+    - { name: 以太网 + WLAN, url: 'https://connectivitycheck.platform.hicloud.com/generate_204', <<: *type_lb-rr, proxies: [以太网, WLAN], hidden: true }
+    - { name: Baidu LR, url: 'https://connectivitycheck.platform.hicloud.com/generate_204', <<: *type_lb-rr, use: [provider_Baidu], hidden: true }
+
+rule-providers-anchor:
+    - &rule { type: http, behavior: classical, format: text, proxy: Update, interval: 86400 }
+    - &site_rule { type: http, behavior: domain, format: mrs, proxy: Update, interval: 86400 }
+    - &ip_rule { type: http, behavior: ipcidr, format: mrs, proxy: Update, interval: 86400 }
+
+rule-providers:
+    site_private: { <<: *site_rule, path: ./rules/site/private.mrs, url: 'https://testingcf.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@meta/geo/geosite/private.mrs' }
+    site_httpdns: { <<: *site_rule, path: ./rules/site/httpdns.mrs, url: 'https://testingcf.jsdelivr.net/gh/yiteei/Share@Proxy/rules/site/httpdns.mrs' }
+    site_webrtc: { <<: *site_rule, path: ./rules/site/webrtc.mrs, url: 'https://testingcf.jsdelivr.net/gh/yiteei/Share@Proxy/rules/site/webrtc.mrs' }
+    site_ad: { <<: *site_rule, path: ./rules/site/awavenue-ads-rule.mrs, url: 'https://testingcf.jsdelivr.net/gh/TG-Twilight/AWAvenue-Ads-Rule@main/Filters/AWAvenue-Ads-Rule-Clash.mrs' }
+    site_flexirule:
+        type: inline
+        format: text
+        <<: *site_rule
+        payload:
+            - '+.easebar.com'
+            - '+.deepseek.com'
+            - 'short.weixin.qq.com'
+            - '+short.weixin.qq.com'
+            - 'long.weixin.qq.com'
+            - '+long.weixin.qq.com'
+    site_telegram: { <<: *site_rule, path: ./rules/site/telegram.mrs, url: 'https://testingcf.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@meta/geo/geosite/telegram.mrs' }
+    site_youtube: { <<: *site_rule, path: ./rules/site/youtube.mrs, url: 'https://testingcf.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@meta/geo/geosite/youtube.mrs' }
+    site_category-ai-!cn: { <<: *site_rule, path: ./rules/site/category-ai-!cn.mrs, url: 'https://testingcf.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@meta/geo/geosite/category-ai-!cn.mrs' }
+    site_win-update: { <<: *site_rule, path: ./rules/site/win-update.mrs, url: 'https://testingcf.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@meta/geo/geosite/win-update.mrs' }
+    site_onedrive: { <<: *site_rule, path: ./rules/site/onedrive.mrs, url: 'https://testingcf.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@meta/geo/geosite/onedrive.mrs' }
+    site_category-games-!cn: { <<: *site_rule, path: ./rules/site/category-games-!cn.mrs, url: 'https://testingcf.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@meta/geo/geosite/category-games-!cn.mrs' }
+    site_cn: { <<: *site_rule, path: ./rules/site/cn.mrs, url: 'https://testingcf.jsdelivr.net/gh/yiteei/Share@Proxy/rules/site/cn.mrs' }
+
+    ip_private: { <<: *ip_rule, path: ./rules/ip/private.mrs, url: 'https://testingcf.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@meta/geo/geoip/private.mrs' }
+    ip_httpdns: { <<: *ip_rule, path: ./rules/ip/httpdns.mrs, url: 'https://testingcf.jsdelivr.net/gh/yiteei/Share@Proxy/rules/ip/httpdns.mrs' }
+    ip_webrtc: { <<: *ip_rule, path: ./rules/ip/webrtc.mrs, url: 'https://testingcf.jsdelivr.net/gh/yiteei/Share@Proxy/rules/ip/webrtc.mrs' }
+    ip_telegram: { <<: *ip_rule, path: ./rules/ip/telegram.mrs, url: 'https://testingcf.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@meta/geo/geoip/telegram.mrs' }
+    ip_cn: { <<: *ip_rule, path: ./rules/ip/cn.mrs, url: 'https://testingcf.jsdelivr.net/gh/yiteei/Share@Proxy/rules/ip/cn.mrs' }
+
+    flexireject:
+        type: inline
+        <<: *rule
+        payload:
+            - DOMAIN,ic.adobe.io
+            - DOMAIN-REGEX,^[a-z\d]{10}\.adobe\.io$
+            - DOMAIN-SUFFIX,adobestats.io
+            - DOMAIN,cc-api-data.adobe.io
+            - DOMAIN,wetype.weixin.qq.com
+            - IP-CIDR,95.161.76.100/31
+
+rules:
+    - AND,((DST-PORT,53),(NOT,((IN-TYPE,Inner)))),dns-hijack
+    - RULE-SET,site_private,Local
+    - RULE-SET,site_httpdns,REJECT
+    - AND,((DST-PORT,3478),(RULE-SET,site_webrtc)),WebRTC
+    - RULE-SET,site_ad,Advert
+    - RULE-SET,flexireject,REJECT
+    - RULE-SET,site_flexirule,FlexiRule
+    - RULE-SET,site_telegram,Telegram
+    - RULE-SET,site_youtube,YouTube
+    - RULE-SET,site_category-ai-!cn,LModel
+    - RULE-SET,site_onedrive,OneDrive
+    - RULE-SET,site_win-update,Update
+    - RULE-SET,site_category-games-!cn,GamePl
+    - IN-NAME,in_mixed,InMixed
+    - RULE-SET,site_cn,Local
+
+    - RULE-SET,ip_private,Local,no-resolve
+    - RULE-SET,ip_httpdns,REJECT
+    - RULE-SET,ip_webrtc,WebRTC
+    - AND,((DST-PORT,3478),(RULE-SET,ip_webrtc)),WebRTC
+    - RULE-SET,ip_telegram,Telegram
+    - RULE-SET,ip_cn,Local
+    - MATCH,Proxy

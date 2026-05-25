@@ -1,0 +1,112 @@
+/*
+*
+* Catppuccin Mocha palette
+* Maintainer: rubyowo
+*
+*/
+$base: #1e1e2e;
+$mantle: #181825;
+$crust: #11111b;
+
+$text: #cdd6f4;
+$subtext0: #a6adc8;
+$subtext1: #bac2de;
+
+$surface0: #313244;
+$surface1: #45475a;
+$surface2: #585b70;
+
+$overlay0: #6c7086;
+$overlay1: #7f849c;
+$overlay2: #9399b2;
+
+$blue: #89b4fa;
+$lavender: #b4befe;
+$sapphire: #74c7ec;
+$sky: #89dceb;
+$teal: #94e2d5;
+$green: #a6e3a1;
+$yellow: #f9e2af;
+$peach: #fab387;
+$maroon: #eba0ac;
+$red: #f38ba8;
+$mauve: #cba6f7;
+$pink: #f5c2e7;
+$flamingo: #f2cdcd;
+$rosewater: #f5e0dc;
+
+$margin_leftright: 12px;
+$padding_leftright: 8px;
+$radius: 16px;
+
+* {
+    font-family: 'Maple Mono NF CN';
+    font-size: 18px;
+}
+
+#waybar {
+    color: #cdd6f4;
+    background: transparent;
+}
+
+#privacy,
+#mpris,
+#tray,
+#power-profiles-daemon,
+#clock,
+#pulseaudio,
+#network,
+#bluetooth,
+#custom-brightness {
+    background-color: rgba(30, 30, 46, 0.58);
+    padding-left: $padding_leftright;
+    padding-right: $padding_leftright;
+    &:hover {
+        color: #f2cdcd;
+    }
+}
+
+#workspaces {
+    background-color: rgba(30, 30, 46, 0.58);
+    border-radius: 0 0 $radius $radius;
+    margin-left: $margin_leftright;
+    button {
+        padding-left: 10px;
+        padding-right: 10px;
+        color: $text;
+    }
+    button.active {
+        color: #f2cdcd;
+    }
+}
+
+#privacy {
+    border-radius: 0 0 $radius $radius;
+    margin-left: $margin_leftright;
+}
+
+#mpris {
+    border-radius: 0 0 $radius $radius;
+    margin-left: $margin_leftright;
+    margin-right: $margin_leftright;
+    padding-left: 12px;
+    padding-right: 12px;
+}
+
+#tray {
+    border-radius: 0 0 $radius $radius;
+    margin-right: $margin_leftright;
+    padding-left: 12px;
+    padding-right: 12px;
+}
+
+#clock {
+    border-radius: 0 0 0 $radius;
+    padding-left: 12px;
+}
+
+#custom-brightness {
+    border-radius: 0 0 $radius 0;
+    margin-right: $margin_leftright;
+    padding-right: 24px;
+}

@@ -1,0 +1,43 @@
+[paths]
+mode = "Image"
+video_dir = "/home/deck/Videos/Wallpapers"
+image_dir = "/home/deck/Pictures/Wallpapers"
+
+[video_engine]
+interval = 864000
+display = "*"
+mpvpaper_args = []
+mpv_args = [
+    "--no-config",
+    "--vo=dmabuf-wayland",
+    "--hwdec=vaapi",
+    "--hwdec-codecs=all",
+    "--loop=inf",
+    "--no-audio",
+    "--video-zoom=0",
+    "--panscan=1.0",
+]
+
+[image_engine]
+interval = 864000
+outputs = ""
+swww_args = [
+    "--transition-type=any",
+    "--transition-bezier=.43,1.19,1,.4",
+    "--transition-duration=1",
+    "--transition-fps=120",
+]
+
+[vram]
+enabled = true
+threshold_percent = 25.0
+recovery_percent = 40.0
+check_interval = 2
+cooldown_seconds = 30
+backend = "auto"
+custom_command = ""
+
+[daemon]
+socket_path = "/tmp/lianwall.sock"
+pid_path = "/tmp/lianwall.pid"
+log_level = "info"

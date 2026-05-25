@@ -1,0 +1,50 @@
+confirm-before-quit = false
+
+[renderer]
+backend = "Vulkan"
+
+[editor]
+program = "vim"
+
+[window]
+opacity = 0.5
+
+[fonts]
+family = "JetBrains Maple Mono"
+size = 24
+
+[effects]
+trail-cursor = false
+
+[colors]
+background       = '#282a36'
+black            = '#44475a'
+blue             = '#bd93f9'
+cursor           = '#f8f8f2'
+cyan             = '#8be9fd'
+foreground       = '#f8f8f2'
+green            = '#50fa7b'
+magenta          = '#ff79c6'
+red              = '#ff5555'
+tabs             = '#494c62'
+tabs-active      = '#6a6e8e'
+white            = '#f8f8f2'
+yellow           = '#f1fa8c'
+dim-black        = '#393c4b'
+dim-blue         = '#ae7bf8'
+dim-cyan         = '#69c3de'
+dim-foreground   = '#dfdfd9'
+dim-green        = '#06572f'
+dim-magenta      = '#ff60bb'
+dim-red          = '#ff3c3c'
+dim-white        = '#efefe1'
+dim-yellow       = '#e6a003'
+light-black      = '#6272a4'
+light-blue       = '#d6acff'
+light-cyan       = '#a4ffff'
+light-foreground = '#f8f8f1'
+light-green      = '#69ff94'
+light-magenta    = '#ff92df'
+light-red        = '#ff6e6e'
+light-white      = '#ffffff'
+light-yellow     = '#ffffa5'
