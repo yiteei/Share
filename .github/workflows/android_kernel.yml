@@ -48,7 +48,7 @@ jobs:
           remove_haskell: true
           remove_tool_cache: true
           remove_swap: true
-          remove_packages: "azure-cli google-cloud-cli microsoft-edge-stable google-chrome-stable firefox postgresql* temurin-* llvm* mysql* dotnet-sdk-*"
+          remove_packages: "azure-cli google-cloud-cli microsoft-edge-stable google-chrome-stable firefox postgresql* llvm* mysql* dotnet-sdk-*"
 
       - name: Install build dependencies
         run: |
@@ -60,8 +60,18 @@ jobs:
           mkdir -p /tmp/llvm-build
           cd /tmp/llvm-build
           
-          # Use clang-r596125 (latest stable version for 2026)
-          wget https://ci.android.com/builds/latest/branches/aosp-main/targets/linux_x86/latest/clang-r596125-linux.zip
+          # Use clang-r596125 from Mirror source with retry logic
+          CLANG_URL="https://github.com/ashleypixie/Mirror-Source-Clang22-Prebuilt/releases/download/r596125/clang-r596125-linux.zip"
+          
+          echo "Downloading from: $CLANG_URL"
+          curl -L -f --retry 3 --retry-delay 5 -o clang-r596125-linux.zip "$CLANG_URL" || \
+          wget --retry-connrefused --waitretry=5 -O clang-r596125-linux.zip "$CLANG_URL"
+          
+          if [ ! -f "clang-r596125-linux.zip" ]; then
+            echo "ERROR: Failed to download clang-r596125-linux.zip"
+            exit 1
+          fi
+          
           unzip -q clang-r596125-linux.zip
           
           # Set up PATH to use Google's clang
