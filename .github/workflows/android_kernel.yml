@@ -53,30 +53,28 @@ jobs:
       - name: Install build dependencies
         run: |
           sudo apt-get update
+          sudo apt-get install -y git curl python3 ccache build-essential libssl-dev bison flex libelf-dev dwarves zip
           
-          # Add LLVM repository for newer versions
-          sudo apt-get install -y wget lsb-release software-properties-common
-          wget https://apt.llvm.org/llvm.sh
-          chmod +x llvm.sh
-          sudo ./llvm.sh 18  # Install LLVM/Clang 18
-          rm llvm.sh
+          # Download and extract Google's prebuilt clang toolchain
+          echo "Downloading Google LLVM toolchain..."
+          mkdir -p /tmp/llvm-build
+          cd /tmp/llvm-build
           
-          sudo apt-get install -y ccache python3 git curl build-essential libssl-dev bison flex libelf-dev dwarves zip
+          # Get the latest clang version from Google's Android repository
+          wget -q https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+/main/clang-r540381/BUILD?format=TEXT -O /dev/null || true
           
-          # Set up clang symlinks
-          sudo ln -sf /usr/bin/clang-18 /usr/bin/clang
-          sudo ln -sf /usr/bin/clang++-18 /usr/bin/clang++
-          sudo ln -sf /usr/bin/clang-18 /usr/bin/cc
+          # Use clang-r542381 (latest stable version compatible with Linux kernel)
+          wget https://ci.android.com/builds/latest/branches/aosp-main/targets/linux_x86/latest/clang-r542381-linux.zip
+          unzip -q clang-r542381-linux.zip
           
-          echo "--- LLVM tool availability ---"
-          for t in clang ld.lld llvm-ar llvm-nm llvm-objcopy llvm-strip llvm-readelf llvm-objdump; do
-            if command -v "$t" >/dev/null 2>&1; then
-              echo "OK  $t -> $(command -v "$t")"
-            else
-              echo "MISSING $t"
-            fi
-          done
-          clang --version | head -n 1
+          # Set up PATH to use Google's clang
+          echo "CLANG_PATH=/tmp/llvm-build/clang-r542381" >> $GITHUB_ENV
+          echo "/tmp/llvm-build/clang-r542381/bin" >> $GITHUB_PATH
+          
+          echo "--- Installed toolchain info ---"
+          clang --version
+          echo "Linker info:"
+          ls -la /tmp/llvm-build/clang-r542381/bin/ld.lld || echo "Note: ld.lld symlink will be verified during build"
 
       - name: Configure ccache
         run: |
@@ -131,8 +129,18 @@ jobs:
 
       - name: Build kernel with make
         working-directory: kernel-src
+        env:
+          PATH: ${{ env.CLANG_PATH }}/bin:${{ env.PATH }}
         run: |
           set -ex
+          
+          # Verify toolchain
+          echo "Verifying toolchain..."
+          clang --version
+          clang++ --version
+          which clang
+          which clang++
+          ls -la "$CLANG_PATH/bin/ld.lld" || ls -la "$CLANG_PATH/bin/lld"
           
           # Set BUILD_NUMBER if provided
           if [ -n "${{ inputs.build_number }}" ]; then
@@ -141,10 +149,10 @@ jobs:
           fi
           
           # Load default config
-          make O=out ARCH=arm64 LLVM=1 defconfig
+          make O=out ARCH=arm64 LLVM="$CLANG_PATH" CC="$CLANG_PATH/bin/clang" defconfig
           
           # Build kernel
-          make O=out ARCH=arm64 LLVM=1 -j$(nproc) Image
+          make O=out ARCH=arm64 LLVM="$CLANG_PATH" CC="$CLANG_PATH/bin/clang" -j$(nproc) Image
           
           # Verify output
           if [ -f "out/arch/arm64/boot/Image" ]; then
@@ -187,6 +195,7 @@ jobs:
           Source commit  : $KERNEL_COMMIT
           Build time     : $(date -u '+%Y-%m-%d %H:%M:%S UTC')
           Build run      : $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID
+          Toolchain      : Google LLVM r542381
           EOF
           
           ls -lh "$GITHUB_WORKSPACE/publish/"
