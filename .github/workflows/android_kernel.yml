@@ -7,12 +7,12 @@ on:
         description: "Custom kernel repository URL (leave empty to use default hfdem Snapdragon 8 Gen 2 kernel)"
         required: false
         type: string
-        default: ""
+        default: "https://github.com/hfdem/android_gki_kernel_5.15_common.git"
       kernel_branch:
         description: "Custom kernel branch (leave empty to use android13-5.15-8gen2)"
         required: false
         type: string
-        default: ""
+        default: "android13-5.15-8gen2"
       build_number:
         description: "Android build ID, appended to kernel version as -ab<number> (e.g. 13729987, leave empty to skip)"
         required: false
@@ -37,24 +37,8 @@ jobs:
       CCACHE_HARDLINK: "true"
 
     steps:
-      - name: Resolve kernel source
-        id: resolve
-        run: |
-          REPO="${{ inputs.kernel_repo }}"
-          BRANCH="${{ inputs.kernel_branch }}"
-          [ -z "$REPO" ] && REPO="https://github.com/hfdem/android_gki_kernel_5.15_common.git"
-          [ -z "$BRANCH" ] && BRANCH="android13-5.15-8gen2"
-          echo "KERNEL_REPO=$REPO" >> $GITHUB_ENV
-          echo "KERNEL_BRANCH=$BRANCH" >> $GITHUB_ENV
-          echo "Kernel source: $REPO @ $BRANCH"
-
       - name: Checkout repository
-        uses: actions/checkout@v7
-
-      - name: Create workspace
-        run: |
-          mkdir -p "$GITHUB_WORKSPACE/android-kernel"
-          echo "workspace: $GITHUB_WORKSPACE/android-kernel"
+        uses: actions/checkout@v4
 
       - name: Free disk space
         uses: endersonmenezes/free-disk-space@v3
@@ -65,15 +49,12 @@ jobs:
           remove_tool_cache: true
           remove_swap: true
           remove_packages: "azure-cli google-cloud-cli microsoft-edge-stable google-chrome-stable firefox postgresql* temurin-* mysql* dotnet-sdk-*"
-          remove_folders: "/usr/share/swift /usr/share/miniconda /usr/share/az* /usr/local/lib/node_modules /usr/local/share/chromium /usr/local/share/powershell /usr/local/julia /usr/local/aws-cli /usr/local/aws-sam-cli /usr/share/gradle"
 
       - name: Install build dependencies
         run: |
           sudo apt-get update
-          # LLVM toolchain is required: make LLVM=1 uses bare "clang"/"ld.lld"/
-          # "llvm-ar" etc. as HOSTCC/LD/AR. Newer ubuntu-latest runners no
-          # longer ship these by default.
-          sudo apt-get install -y ccache clang lld llvm python3 git curl build-essential libssl-dev bison flex libelf-dev dwarves
+          sudo apt-get install -y ccache clang lld llvm python3 git curl build-essential libssl-dev bison flex libelf-dev dwarves zip
+          
           # Fallback: if only clang-<ver> exists, symlink it to /usr/bin/clang
           if ! command -v clang >/dev/null 2>&1; then
             V=$(ls /usr/bin/clang-[0-9]* 2>/dev/null | sort -V | tail -1 | grep -oE '[0-9]+$')
@@ -82,6 +63,7 @@ jobs:
               echo "Linked /usr/bin/clang -> clang-$V"
             fi
           fi
+          
           echo "--- LLVM tool availability ---"
           for t in clang ld.lld llvm-ar llvm-nm llvm-objcopy llvm-strip llvm-readelf llvm-objdump; do
             if command -v "$t" >/dev/null 2>&1; then
@@ -92,13 +74,6 @@ jobs:
           done
           clang --version | head -n 1
 
-          # Download the repo tool (and create the workspace dir for later steps)
-          mkdir -p "$GITHUB_WORKSPACE/android-kernel/git-repo"
-          curl -sL https://storage.googleapis.com/git-repo-downloads/repo -o "$GITHUB_WORKSPACE/android-kernel/git-repo/repo"
-          chmod +x "$GITHUB_WORKSPACE/android-kernel/git-repo/repo"
-          echo "$GITHUB_WORKSPACE/android-kernel/git-repo" >> "$GITHUB_PATH"
-          echo "repo tool installed"
-
       - name: Configure ccache
         run: |
           ccache --version
@@ -107,98 +82,40 @@ jobs:
           echo "CCACHE_DIR=$HOME/.ccache" >> $GITHUB_ENV
 
       - name: Restore ccache cache
-        uses: actions/cache@v5
+        uses: actions/cache@v4
         with:
           path: ~/.ccache
           key: gki-publish-ccache-${{ github.sha }}
           restore-keys: |
             gki-publish-ccache-
 
-      - name: Init and sync kernel source
-        working-directory: ${{ github.workspace }}/android-kernel
+      - name: Clone kernel source
         run: |
-          BASE_BRANCH="common-android13-5.15"
-
-          # Handle deprecated migration (e.g. deprecated/common-android13-5.15)
-          if git ls-remote https://android.googlesource.com/kernel/manifest "$BASE_BRANCH" | grep -q .; then
-            MB="$BASE_BRANCH"
-          elif git ls-remote https://android.googlesource.com/kernel/manifest "deprecated/$BASE_BRANCH" | grep -q .; then
-            MB="deprecated/$BASE_BRANCH"
-          else
-            echo "::error::Cannot find manifest branch $BASE_BRANCH"
-            exit 1
-          fi
-          echo "Using manifest branch: $MB"
-
-          repo init --depth=1 -u https://android.googlesource.com/kernel/manifest -b "$MB" --repo-rev=v2.16
-          if [ "$MB" != "$BASE_BRANCH" ]; then
-            sed -i "s|refs/heads/${BASE_BRANCH}|refs/heads/${MB}|g" .repo/manifests/default.xml
-          fi
-          repo sync -c -j$(nproc --all) --no-tags --fail-fast
-
-          # Switch common/ to the target kernel repo/branch
-          echo "Switching kernel source: $KERNEL_REPO @ $KERNEL_BRANCH"
-          cd common
-          # repo shallow-sync may produce a repo without an origin remote
-          git remote remove origin 2>/dev/null || true
-          git remote add origin "$KERNEL_REPO"
-          if ! git fetch --depth 1 origin "$KERNEL_BRANCH" 2>/dev/null; then
-            # Fallback: re-clone the whole tree if the repo structure is broken
-            echo "common repo structure is broken, re-cloning kernel source..."
-            cd ..
-            rm -rf common
-            git clone --depth 1 -b "$KERNEL_BRANCH" "$KERNEL_REPO" common
-            cd common
-          fi
-          # A single-branch fetch only writes FETCH_HEAD, so check that out
-          git checkout -B "$KERNEL_BRANCH" FETCH_HEAD
-          git log -1 --oneline
-          cd ..
+          REPO="${{ inputs.kernel_repo }}"
+          BRANCH="${{ inputs.kernel_branch }}"
+          
+          # Default values
+          [ -z "$REPO" ] && REPO="https://github.com/hfdem/android_gki_kernel_5.15_common.git"
+          [ -z "$BRANCH" ] && BRANCH="android13-5.15-8gen2"
+          
+          echo "Cloning kernel from $REPO @ $BRANCH"
+          git clone --depth 1 -b "$BRANCH" "$REPO" kernel-src
+          
+          # Export for later use
+          echo "KERNEL_REPO=$REPO" >> $GITHUB_ENV
+          echo "KERNEL_BRANCH=$BRANCH" >> $GITHUB_ENV
+          cd kernel-src
+          echo "KERNEL_COMMIT=$(git rev-parse HEAD)" >> $GITHUB_ENV
 
       - name: Extract version info
-        working-directory: ${{ github.workspace }}/android-kernel
+        working-directory: kernel-src
         run: |
-          # Full kernel version (VERSION.PATCHLEVEL.SUBLEVEL)
-          VER=$(grep '^VERSION = ' common/Makefile | awk '{print $3}')
-          PATCH=$(grep '^PATCHLEVEL = ' common/Makefile | awk '{print $3}')
-          SUB=$(grep '^SUBLEVEL = ' common/Makefile | awk '{print $3}')
+          VER=$(grep '^VERSION = ' Makefile | awk '{print $3}')
+          PATCH=$(grep '^PATCHLEVEL = ' Makefile | awk '{print $3}')
+          SUB=$(grep '^SUBLEVEL = ' Makefile | awk '{print $3}')
           KERNEL_FULL="${VER}.${PATCH}.${SUB}"
           echo "KERNEL_FULL=$KERNEL_FULL" >> $GITHUB_ENV
-
-          # Publish dir name (from the kernel's own BRANCH config, e.g. android13-5.15)
-          BRANCH_DIR=$(grep '^BRANCH=' common/build.config.constants | cut -d'=' -f2)
-          [ -z "$BRANCH_DIR" ] && BRANCH_DIR="android13-5.15"
-          echo "BRANCH_DIR=$BRANCH_DIR" >> $GITHUB_ENV
-
-          # Kernel source commit
-          COMMIT=$(git -C common rev-parse HEAD)
-          echo "KERNEL_COMMIT=$COMMIT" >> $GITHUB_ENV
-
           echo "Kernel version: $KERNEL_FULL"
-          echo "Publish dir: $BRANCH_DIR"
-          echo "Source commit: $COMMIT"
-
-      - name: Prepare packaging tools
-        working-directory: ${{ github.workspace }}/android-kernel
-        run: |
-          AOSP_MIRROR=https://android.googlesource.com
-          BRANCH=main-kernel-build-2024
-          git clone $AOSP_MIRROR/kernel/prebuilts/build-tools -b $BRANCH --depth 1 kernel-build-tools
-          git clone $AOSP_MIRROR/platform/system/tools/mkbootimg -b $BRANCH --depth 1 mkbootimg
-          git clone https://github.com/WildKernels/AnyKernel3.git -b gki-2.0 --depth 1 AnyKernel3
-          rm -rf AnyKernel3/.git
-
-      - name: Generate signing key
-        run: |
-          KEY="$GITHUB_WORKSPACE/android-kernel/kernel-build-tools/linux-x86/share/avb/testkey_rsa2048.pem"
-          mkdir -p "$(dirname "$KEY")"
-          openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 > "$KEY"
-          echo "Signing key regenerated at $KEY"
-
-      - name: Configure Git
-        run: |
-          git config --global user.name "BuildBot"
-          git config --global user.email "BuildGkiKernel@gmail.com"
 
       - name: Set build timestamp
         shell: bash
@@ -207,82 +124,58 @@ jobs:
           DATESTR="$(TZ='UTC' date +'%a %b %d %T %Z %Y')"
           echo "KBUILD_BUILD_TIMESTAMP=$DATESTR" >> "$GITHUB_ENV"
           echo "KBUILD_BUILD_VERSION=1" >> "$GITHUB_ENV"
-          f="$GITHUB_WORKSPACE/android-kernel/common/scripts/mkcompile_h"
-          if [ -f "$f" ]; then
-            # 5.x classic timestamp patch (same as upstream workflow)
-            perl -pi -e "s{UTS_VERSION=\"\\\$\(echo \\\$UTS_VERSION \\\$CONFIG_FLAGS \\\$TIMESTAMP \\| cut -b -\\\$UTS_LEN\)\"}{UTS_VERSION=\"#1 SMP PREEMPT $DATESTR\"}" "$f" || true
-          fi
 
-      - name: Build kernel
-        working-directory: ${{ github.workspace }}/android-kernel
+      - name: Build kernel with make
+        working-directory: kernel-src
         run: |
           set -ex
-
-          # Tweak GKI build config to avoid module/ABI checks interfering with custom builds
-          sed -i 's/BUILD_SYSTEM_DLKM=1/BUILD_SYSTEM_DLKM=0/' ./common/build.config.gki.aarch64
-          sed -i '/MODULES_ORDER=android\/gki_aarch64_modules/d' ./common/build.config.gki.aarch64
-          sed -i '/KMI_SYMBOL_LIST_STRICT_MODE/d' ./common/build.config.gki.aarch64
-          sed -i 's/check_defconfig//' ./common/build.config.gki
-
-          # Strip "-dirty" from the kernel version string (source tree is modified above)
-          sed -i 's/-dirty//' ./common/scripts/setlocalversion
-
-          # BUILD_NUMBER (if provided) is picked up by scripts/setlocalversion
-          # to append "-ab<build_number>" to the kernel version string
+          
+          # Set BUILD_NUMBER if provided
           if [ -n "${{ inputs.build_number }}" ]; then
             export BUILD_NUMBER="${{ inputs.build_number }}"
             echo "BUILD_NUMBER=$BUILD_NUMBER (will append -ab$BUILD_NUMBER)"
           fi
-
-          # make LLVM=1 needs bare LLVM tools on PATH; fail early with a clear message
-          echo "--- LLVM tool check before build ---"
-          for t in clang ld.lld llvm-ar llvm-nm llvm-objcopy llvm-strip llvm-readelf llvm-objdump; do
-            command -v "$t" >/dev/null 2>&1 || { echo "::error::missing $t on PATH - cannot build"; exit 1; }
-          done
-
-          LTO=thin BUILD_CONFIG=common/build.config.gki.aarch64 \
-            build/build.sh CC="/usr/bin/ccache clang"
-
+          
+          # Load default config
+          make O=out ARCH=arm64 LLVM=1 defconfig
+          
+          # Build kernel
+          make O=out ARCH=arm64 LLVM=1 -j$(nproc) Image
+          
           # Verify output
-          strings "out/$BRANCH_DIR/dist/Image" | grep 'Linux version'
-          ls -lh "out/$BRANCH_DIR/dist/"
+          if [ -f "out/arch/arm64/boot/Image" ]; then
+            ls -lh "out/arch/arm64/boot/Image"
+            file "out/arch/arm64/boot/Image"
+          else
+            echo "ERROR: Image not found at out/arch/arm64/boot/Image"
+            exit 1
+          fi
 
-      - name: Package boot images & AnyKernel3
-        working-directory: ${{ github.workspace }}/android-kernel
+      - name: Prepare AnyKernel3
+        run: |
+          git clone https://github.com/WildKernels/AnyKernel3.git -b gki-2.0 --depth 1 AnyKernel3
+          rm -rf AnyKernel3/.git
+          echo "AnyKernel3 prepared"
+
+      - name: Package kernel artifacts
         run: |
           set -ex
-          SRC="out/$BRANCH_DIR/dist"
           mkdir -p "$GITHUB_WORKSPACE/publish"
-
-          cp "$SRC/Image" "$GITHUB_WORKSPACE/publish/"
-          cp "$SRC/Image.lz4" "$GITHUB_WORKSPACE/publish/"
-
-          AVBTOOL="$GITHUB_WORKSPACE/android-kernel/kernel-build-tools/linux-x86/bin/avbtool"
-          MKBOOTIMG="$GITHUB_WORKSPACE/android-kernel/mkbootimg/mkbootimg.py"
-          BOOT_SIGN_KEY="$GITHUB_WORKSPACE/android-kernel/kernel-build-tools/linux-x86/share/avb/testkey_rsa2048.pem"
-
-          cd "$GITHUB_WORKSPACE/publish"
-          gzip -n -k -f -9 Image
-          # Standard GKI boot image for Android 13+ (header v4, no ramdisk, AVB-signed)
-          $MKBOOTIMG --header_version 4 --kernel Image --output boot.img
-          $AVBTOOL add_hash_footer --partition_name boot --partition_size $((64 * 1024 * 1024)) \
-            --image boot.img --algorithm SHA256_RSA2048 --key "$BOOT_SIGN_KEY"
-
-          gzip -n -k -f -9 Image
-          $MKBOOTIMG --header_version 4 --kernel Image.gz --output boot-gz.img
-          $AVBTOOL add_hash_footer --partition_name boot --partition_size $((64 * 1024 * 1024)) \
-            --image boot-gz.img --algorithm SHA256_RSA2048 --key "$BOOT_SIGN_KEY"
-
-          $MKBOOTIMG --header_version 4 --kernel Image.lz4 --output boot-lz4.img
-          $AVBTOOL add_hash_footer --partition_name boot --partition_size $((64 * 1024 * 1024)) \
-            --image boot-lz4.img --algorithm SHA256_RSA2048 --key "$BOOT_SIGN_KEY"
-
-          # AnyKernel3 flashable zip
-          cp Image "$GITHUB_WORKSPACE/android-kernel/AnyKernel3/Image"
-          cd "$GITHUB_WORKSPACE/android-kernel/AnyKernel3"
-          zip -r "$GITHUB_WORKSPACE/publish/${BRANCH_DIR}-AnyKernel3.zip" ./*
-
-          # Build info
+          
+          # Copy kernel image
+          if [ -f "kernel-src/out/arch/arm64/boot/Image" ]; then
+            cp kernel-src/out/arch/arm64/boot/Image "$GITHUB_WORKSPACE/publish/"
+            echo "Copied kernel Image"
+          fi
+          
+          # Create AnyKernel3 flashable zip
+          cp kernel-src/out/arch/arm64/boot/Image AnyKernel3/Image
+          cd AnyKernel3
+          zip -r "$GITHUB_WORKSPACE/publish/AnyKernel3-$KERNEL_FULL.zip" ./*
+          cd ..
+          echo "Created AnyKernel3 zip"
+          
+          # Create build info
           cat > "$GITHUB_WORKSPACE/publish/BUILD_INFO.txt" << EOF
           Kernel version: $KERNEL_FULL
           Source repo    : $KERNEL_REPO
@@ -291,23 +184,24 @@ jobs:
           Build time     : $(date -u '+%Y-%m-%d %H:%M:%S UTC')
           Build run      : $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID
           EOF
-
+          
           ls -lh "$GITHUB_WORKSPACE/publish/"
 
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v4
         with:
-          name: "${{ env.BRANCH_DIR }}-${{ env.KERNEL_FULL }}"
+          name: "kernel-${{ env.KERNEL_FULL }}"
           path: publish/*
           compression-level: 9
 
       - name: Publish to android_kernel branch
         run: |
           set -e
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-          # Switch to the android_kernel branch (create orphan if it does not exist)
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          
+          # Get original repo and switch to android_kernel branch
+          cd "$GITHUB_WORKSPACE"
           git fetch origin android_kernel || true
           if git rev-parse --verify origin/android_kernel >/dev/null 2>&1; then
             git checkout -B android_kernel origin/android_kernel
@@ -315,21 +209,20 @@ jobs:
             git checkout --orphan android_kernel
             git rm -rf . >/dev/null 2>&1 || true
           fi
-
-          # Update the target directory (e.g. android13-5.15/), replacing its contents
-          git rm -rf --ignore-unmatch "$BRANCH_DIR" >/dev/null 2>&1 || true
-          mkdir -p "$BRANCH_DIR"
-          cp -r "$GITHUB_WORKSPACE/publish/"* "$BRANCH_DIR/"
-
-          git add "$BRANCH_DIR"
+          
+          # Update kernel directory
+          mkdir -p "kernel-builds"
+          cp -r "$GITHUB_WORKSPACE/publish/"* "kernel-builds/"
+          
+          git add "kernel-builds"
           if git diff --cached --quiet; then
             echo "No artifact changes, skipping commit"
           else
-            git commit -m "Build $BRANCH_DIR kernel $KERNEL_FULL
-
-            Source: $KERNEL_REPO @ $KERNEL_BRANCH
-            Commit: $KERNEL_COMMIT
-            CI: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+            git commit -m "Build kernel $KERNEL_FULL
+          
+          Source: $KERNEL_REPO @ $KERNEL_BRANCH
+          Commit: $KERNEL_COMMIT
+          CI: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
             git push origin android_kernel
-            echo "Pushed to android_kernel branch: $BRANCH_DIR/"
+            echo "Pushed to android_kernel branch"
           fi
