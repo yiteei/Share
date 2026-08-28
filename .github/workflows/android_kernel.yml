@@ -60,19 +60,19 @@ jobs:
           mkdir -p /tmp/llvm-build
           cd /tmp/llvm-build
           
-          # Use clang-r596125 from Mirror source with retry logic
-          CLANG_URL="https://github.com/ashleypixie/Mirror-Source-Clang22-Prebuilt/releases/download/r596125/clang-r596125-linux.zip"
+          # Use official Google Android LLVM prebuilt
+          CLANG_URL="https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/main/clang-r596125.tar.gz"
           
           echo "Downloading from: $CLANG_URL"
-          curl -L -f --retry 3 --retry-delay 5 -o clang-r596125-linux.zip "$CLANG_URL" || \
-          wget --retry-connrefused --waitretry=5 -O clang-r596125-linux.zip "$CLANG_URL"
+          curl -L -f --retry 3 --retry-delay 5 -o clang-r596125.tar.gz "$CLANG_URL" || \
+          wget --retry-connrefused --waitretry=5 -O clang-r596125.tar.gz "$CLANG_URL"
           
-          if [ ! -f "clang-r596125-linux.zip" ]; then
-            echo "ERROR: Failed to download clang-r596125-linux.zip"
+          if [ ! -f "clang-r596125.tar.gz" ]; then
+            echo "ERROR: Failed to download clang-r596125.tar.gz"
             exit 1
           fi
           
-          unzip -q clang-r596125-linux.zip
+          tar -xzf clang-r596125.tar.gz
           
           # Set up PATH to use Google's clang
           echo "CLANG_PATH=/tmp/llvm-build/clang-r596125" >> $GITHUB_ENV
