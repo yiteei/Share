@@ -51,6 +51,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
 
+      - name: Create workspace
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/android-kernel"
+          echo "workspace: $GITHUB_WORKSPACE/android-kernel"
+
       - name: Free disk space
         uses: endersonmenezes/free-disk-space@v3
         with:
@@ -86,6 +91,13 @@ jobs:
             fi
           done
           clang --version | head -n 1
+
+          # Download the repo tool (and create the workspace dir for later steps)
+          mkdir -p "$GITHUB_WORKSPACE/android-kernel/git-repo"
+          curl -sL https://storage.googleapis.com/git-repo-downloads/repo -o "$GITHUB_WORKSPACE/android-kernel/git-repo/repo"
+          chmod +x "$GITHUB_WORKSPACE/android-kernel/git-repo/repo"
+          echo "$GITHUB_WORKSPACE/android-kernel/git-repo" >> "$GITHUB_PATH"
+          echo "repo tool installed"
 
       - name: Configure ccache
         run: |
