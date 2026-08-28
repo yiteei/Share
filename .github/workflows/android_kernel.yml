@@ -56,25 +56,22 @@ jobs:
           sudo apt-get install -y git curl python3 ccache build-essential libssl-dev bison flex libelf-dev dwarves zip
           
           # Download and extract Google's prebuilt clang toolchain
-          echo "Downloading Google LLVM toolchain..."
+          echo "Downloading Google LLVM toolchain (clang-r596125)..."
           mkdir -p /tmp/llvm-build
           cd /tmp/llvm-build
           
-          # Get the latest clang version from Google's Android repository
-          wget -q https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+/main/clang-r540381/BUILD?format=TEXT -O /dev/null || true
-          
-          # Use clang-r542381 (latest stable version compatible with Linux kernel)
-          wget https://ci.android.com/builds/latest/branches/aosp-main/targets/linux_x86/latest/clang-r542381-linux.zip
-          unzip -q clang-r542381-linux.zip
+          # Use clang-r596125 (latest stable version for 2026)
+          wget https://ci.android.com/builds/latest/branches/aosp-main/targets/linux_x86/latest/clang-r596125-linux.zip
+          unzip -q clang-r596125-linux.zip
           
           # Set up PATH to use Google's clang
-          echo "CLANG_PATH=/tmp/llvm-build/clang-r542381" >> $GITHUB_ENV
-          echo "/tmp/llvm-build/clang-r542381/bin" >> $GITHUB_PATH
+          echo "CLANG_PATH=/tmp/llvm-build/clang-r596125" >> $GITHUB_ENV
+          echo "/tmp/llvm-build/clang-r596125/bin" >> $GITHUB_PATH
           
           echo "--- Installed toolchain info ---"
           clang --version
           echo "Linker info:"
-          ls -la /tmp/llvm-build/clang-r542381/bin/ld.lld || echo "Note: ld.lld symlink will be verified during build"
+          ls -la /tmp/llvm-build/clang-r596125/bin/ld.lld || echo "Note: ld.lld symlink will be verified during build"
 
       - name: Configure ccache
         run: |
@@ -195,7 +192,7 @@ jobs:
           Source commit  : $KERNEL_COMMIT
           Build time     : $(date -u '+%Y-%m-%d %H:%M:%S UTC')
           Build run      : $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID
-          Toolchain      : Google LLVM r542381
+          Toolchain      : Google LLVM r596125
           EOF
           
           ls -lh "$GITHUB_WORKSPACE/publish/"
