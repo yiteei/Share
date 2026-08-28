@@ -53,16 +53,20 @@ jobs:
       - name: Install build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y ccache clang lld llvm python3 git curl build-essential libssl-dev bison flex libelf-dev dwarves zip
           
-          # Fallback: if only clang-<ver> exists, symlink it to /usr/bin/clang
-          if ! command -v clang >/dev/null 2>&1; then
-            V=$(ls /usr/bin/clang-[0-9]* 2>/dev/null | sort -V | tail -1 | grep -oE '[0-9]+$')
-            if [ -n "$V" ]; then
-              sudo ln -sf "/usr/bin/clang-$V" /usr/bin/clang
-              echo "Linked /usr/bin/clang -> clang-$V"
-            fi
-          fi
+          # Add LLVM repository for newer versions
+          sudo apt-get install -y wget lsb-release software-properties-common
+          wget https://apt.llvm.org/llvm.sh
+          chmod +x llvm.sh
+          sudo ./llvm.sh 18  # Install LLVM/Clang 18
+          rm llvm.sh
+          
+          sudo apt-get install -y ccache lld llvm python3 git curl build-essential libssl-dev bison flex libelf-dev dwarves zip
+          
+          # Set up clang symlinks
+          sudo ln -sf /usr/bin/clang-18 /usr/bin/clang
+          sudo ln -sf /usr/bin/clang++-18 /usr/bin/clang++
+          sudo ln -sf /usr/bin/clang-18 /usr/bin/cc
           
           echo "--- LLVM tool availability ---"
           for t in clang ld.lld llvm-ar llvm-nm llvm-objcopy llvm-strip llvm-readelf llvm-objdump; do
