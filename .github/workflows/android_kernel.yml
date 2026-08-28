@@ -30,6 +30,12 @@ jobs:
   build-and-publish:
     runs-on: ubuntu-latest
     timeout-minutes: 120
+
+    env:
+      CCACHE_COMPILERCHECK: "%compiler% -dumpmachine; %compiler% -dumpversion"
+      CCACHE_NOHASHDIR: "true"
+      CCACHE_HARDLINK: "true"
+
     steps:
       - name: Resolve kernel source
         id: resolve
@@ -63,13 +69,38 @@ jobs:
           # "llvm-ar" etc. as HOSTCC/LD/AR. Newer ubuntu-latest runners no
           # longer ship these by default.
           sudo apt-get install -y ccache clang lld llvm python3 git curl build-essential libssl-dev bison flex libelf-dev dwarves
+          # Fallback: if only clang-<ver> exists, symlink it to /usr/bin/clang
+          if ! command -v clang >/dev/null 2>&1; then
+            V=$(ls /usr/bin/clang-[0-9]* 2>/dev/null | sort -V | tail -1 | grep -oE '[0-9]+$')
+            if [ -n "$V" ]; then
+              sudo ln -sf "/usr/bin/clang-$V" /usr/bin/clang
+              echo "Linked /usr/bin/clang -> clang-$V"
+            fi
+          fi
+          echo "--- LLVM tool availability ---"
+          for t in clang ld.lld llvm-ar llvm-nm llvm-objcopy llvm-strip llvm-readelf llvm-objdump; do
+            if command -v "$t" >/dev/null 2>&1; then
+              echo "OK  $t -> $(command -v "$t")"
+            else
+              echo "MISSING $t"
+            fi
+          done
           clang --version | head -n 1
-          which clang ld.lld llvm-ar llvm-nm llvm-objcopy
-          mkdir -p "$GITHUB_WORKSPACE/android-kernel/git-repo"
-          curl -sL https://storage.googleapis.com/git-repo-downloads/repo -o "$GITHUB_WORKSPACE/android-kernel/git-repo/repo"
-          chmod +x "$GITHUB_WORKSPACE/android-kernel/git-repo/repo"
-          echo "$GITHUB_WORKSPACE/android-kernel/git-repo" >> "$GITHUB_PATH"
+
+      - name: Configure ccache
+        run: |
+          ccache --version
           ccache --max-size=2G
+          ccache --set-config=compression=true
+          echo "CCACHE_DIR=$HOME/.ccache" >> $GITHUB_ENV
+
+      - name: Restore ccache cache
+        uses: actions/cache@v5
+        with:
+          path: ~/.ccache
+          key: gki-publish-ccache-${{ github.sha }}
+          restore-keys: |
+            gki-publish-ccache-
 
       - name: Init and sync kernel source
         working-directory: ${{ github.workspace }}/android-kernel
@@ -145,6 +176,31 @@ jobs:
           git clone https://github.com/WildKernels/AnyKernel3.git -b gki-2.0 --depth 1 AnyKernel3
           rm -rf AnyKernel3/.git
 
+      - name: Generate signing key
+        run: |
+          KEY="$GITHUB_WORKSPACE/android-kernel/kernel-build-tools/linux-x86/share/avb/testkey_rsa2048.pem"
+          mkdir -p "$(dirname "$KEY")"
+          openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 > "$KEY"
+          echo "Signing key regenerated at $KEY"
+
+      - name: Configure Git
+        run: |
+          git config --global user.name "BuildBot"
+          git config --global user.email "BuildGkiKernel@gmail.com"
+
+      - name: Set build timestamp
+        shell: bash
+        run: |
+          set -euo pipefail
+          DATESTR="$(TZ='UTC' date +'%a %b %d %T %Z %Y')"
+          echo "KBUILD_BUILD_TIMESTAMP=$DATESTR" >> "$GITHUB_ENV"
+          echo "KBUILD_BUILD_VERSION=1" >> "$GITHUB_ENV"
+          f="$GITHUB_WORKSPACE/android-kernel/common/scripts/mkcompile_h"
+          if [ -f "$f" ]; then
+            # 5.x classic timestamp patch (same as upstream workflow)
+            perl -pi -e "s{UTS_VERSION=\"\\\$\(echo \\\$UTS_VERSION \\\$CONFIG_FLAGS \\\$TIMESTAMP \\| cut -b -\\\$UTS_LEN\)\"}{UTS_VERSION=\"#1 SMP PREEMPT $DATESTR\"}" "$f" || true
+          fi
+
       - name: Build kernel
         working-directory: ${{ github.workspace }}/android-kernel
         run: |
@@ -156,16 +212,22 @@ jobs:
           sed -i '/KMI_SYMBOL_LIST_STRICT_MODE/d' ./common/build.config.gki.aarch64
           sed -i 's/check_defconfig//' ./common/build.config.gki
 
-          # Strip "-dirty" from the kernel version string (source tree is modified by the steps above)
+          # Strip "-dirty" from the kernel version string (source tree is modified above)
           sed -i 's/-dirty//' ./common/scripts/setlocalversion
 
-          # Use the runner's system clang + ccache
           # BUILD_NUMBER (if provided) is picked up by scripts/setlocalversion
           # to append "-ab<build_number>" to the kernel version string
           if [ -n "${{ inputs.build_number }}" ]; then
             export BUILD_NUMBER="${{ inputs.build_number }}"
             echo "BUILD_NUMBER=$BUILD_NUMBER (will append -ab$BUILD_NUMBER)"
           fi
+
+          # make LLVM=1 needs bare LLVM tools on PATH; fail early with a clear message
+          echo "--- LLVM tool check before build ---"
+          for t in clang ld.lld llvm-ar llvm-nm llvm-objcopy llvm-strip llvm-readelf llvm-objdump; do
+            command -v "$t" >/dev/null 2>&1 || { echo "::error::missing $t on PATH - cannot build"; exit 1; }
+          done
+
           LTO=thin BUILD_CONFIG=common/build.config.gki.aarch64 \
             build/build.sh CC="/usr/bin/ccache clang"
 
