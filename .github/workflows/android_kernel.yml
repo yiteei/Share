@@ -48,7 +48,7 @@ jobs:
           remove_haskell: true
           remove_tool_cache: true
           remove_swap: true
-          remove_packages: "azure-cli google-cloud-cli microsoft-edge-stable google-chrome-stable firefox postgresql* temurin-* mysql* dotnet-sdk-*"
+          remove_packages: "azure-cli google-cloud-cli microsoft-edge-stable google-chrome-stable firefox postgresql* temurin-* llvm* mysql* dotnet-sdk-*"
 
       - name: Install build dependencies
         run: |
@@ -61,7 +61,7 @@ jobs:
           sudo ./llvm.sh 18  # Install LLVM/Clang 18
           rm llvm.sh
           
-          sudo apt-get install -y ccache lld llvm python3 git curl build-essential libssl-dev bison flex libelf-dev dwarves zip
+          sudo apt-get install -y ccache python3 git curl build-essential libssl-dev bison flex libelf-dev dwarves zip
           
           # Set up clang symlinks
           sudo ln -sf /usr/bin/clang-18 /usr/bin/clang
