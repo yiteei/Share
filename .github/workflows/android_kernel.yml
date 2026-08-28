@@ -1,15 +1,20 @@
-name: Android Kernel Build
+name: GKI Kernel Build & Publish
 
 on:
   workflow_dispatch:
     inputs:
       kernel_repo:
-        description: "自定义内核仓库 URL（留空则使用默认 hfdem 骁龙8Gen2 内核）"
+        description: "Custom kernel repository URL (leave empty to use default hfdem Snapdragon 8 Gen 2 kernel)"
         required: false
         type: string
         default: ""
       kernel_branch:
-        description: "自定义内核仓库分支（留空则使用 android13-5.15-8gen2）"
+        description: "Custom kernel branch (leave empty to use android13-5.15-8gen2)"
+        required: false
+        type: string
+        default: ""
+      build_number:
+        description: "Android build ID, appended to kernel version as -ab<number> (e.g. 13729987, leave empty to skip)"
         required: false
         type: string
         default: ""
@@ -26,7 +31,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
-      - name: 解析内核来源
+      - name: Resolve kernel source
         id: resolve
         run: |
           REPO="${{ inputs.kernel_repo }}"
@@ -35,12 +40,12 @@ jobs:
           [ -z "$BRANCH" ] && BRANCH="android13-5.15-8gen2"
           echo "KERNEL_REPO=$REPO" >> $GITHUB_ENV
           echo "KERNEL_BRANCH=$BRANCH" >> $GITHUB_ENV
-          echo "使用内核: $REPO @ $BRANCH"
+          echo "Kernel source: $REPO @ $BRANCH"
 
-      - name: 检出代码仓库
+      - name: Checkout repository
         uses: actions/checkout@v7
 
-      - name: 清理磁盘空间
+      - name: Free disk space
         uses: endersonmenezes/free-disk-space@v3
         with:
           remove_android: true
@@ -51,7 +56,7 @@ jobs:
           remove_packages: "azure-cli google-cloud-cli microsoft-edge-stable google-chrome-stable firefox postgresql* temurin-* mysql* dotnet-sdk-*"
           remove_folders: "/usr/share/swift /usr/share/miniconda /usr/share/az* /usr/local/lib/node_modules /usr/local/share/chromium /usr/local/share/powershell /usr/local/julia /usr/local/aws-cli /usr/local/aws-sam-cli /usr/share/gradle"
 
-      - name: 安装编译依赖
+      - name: Install build dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y ccache python3 git curl build-essential libssl-dev bison flex libelf-dev dwarves
@@ -61,21 +66,21 @@ jobs:
           echo "$GITHUB_WORKSPACE/android-kernel/git-repo" >> "$GITHUB_PATH"
           ccache --max-size=2G
 
-      - name: 初始化并同步内核源码
+      - name: Init and sync kernel source
         working-directory: ${{ github.workspace }}/android-kernel
         run: |
           BASE_BRANCH="common-android13-5.15"
 
-          # 兼容 deprecated 迁移（如 deprecated/common-android13-5.15）
+          # Handle deprecated migration (e.g. deprecated/common-android13-5.15)
           if git ls-remote https://android.googlesource.com/kernel/manifest "$BASE_BRANCH" | grep -q .; then
             MB="$BASE_BRANCH"
           elif git ls-remote https://android.googlesource.com/kernel/manifest "deprecated/$BASE_BRANCH" | grep -q .; then
             MB="deprecated/$BASE_BRANCH"
           else
-            echo "::error::找不到 manifest 分支 $BASE_BRANCH"
+            echo "::error::Cannot find manifest branch $BASE_BRANCH"
             exit 1
           fi
-          echo "使用 manifest 分支: $MB"
+          echo "Using manifest branch: $MB"
 
           repo init --depth=1 -u https://android.googlesource.com/kernel/manifest -b "$MB" --repo-rev=v2.16
           if [ "$MB" != "$BASE_BRANCH" ]; then
@@ -83,39 +88,49 @@ jobs:
           fi
           repo sync -c -j$(nproc --all) --no-tags --fail-fast
 
-          # 切换到目标内核仓库/分支
-          echo "切换内核源码: $KERNEL_REPO @ $KERNEL_BRANCH"
+          # Switch common/ to the target kernel repo/branch
+          echo "Switching kernel source: $KERNEL_REPO @ $KERNEL_BRANCH"
           cd common
-          git remote set-url origin "$KERNEL_REPO"
-          git fetch origin "$KERNEL_BRANCH"
-          git checkout -B "$KERNEL_BRANCH" "origin/$KERNEL_BRANCH"
+          # repo shallow-sync may produce a repo without an origin remote
+          git remote remove origin 2>/dev/null || true
+          git remote add origin "$KERNEL_REPO"
+          if ! git fetch --depth 1 origin "$KERNEL_BRANCH" 2>/dev/null; then
+            # Fallback: re-clone the whole tree if the repo structure is broken
+            echo "common repo structure is broken, re-cloning kernel source..."
+            cd ..
+            rm -rf common
+            git clone --depth 1 -b "$KERNEL_BRANCH" "$KERNEL_REPO" common
+            cd common
+          fi
+          # A single-branch fetch only writes FETCH_HEAD, so check that out
+          git checkout -B "$KERNEL_BRANCH" FETCH_HEAD
           git log -1 --oneline
           cd ..
 
-      - name: 提取版本信息
+      - name: Extract version info
         working-directory: ${{ github.workspace }}/android-kernel
         run: |
-          # 完整内核版本（VERSION.PATCHLEVEL.SUBLEVEL）
+          # Full kernel version (VERSION.PATCHLEVEL.SUBLEVEL)
           VER=$(grep '^VERSION = ' common/Makefile | awk '{print $3}')
           PATCH=$(grep '^PATCHLEVEL = ' common/Makefile | awk '{print $3}')
           SUB=$(grep '^SUBLEVEL = ' common/Makefile | awk '{print $3}')
           KERNEL_FULL="${VER}.${PATCH}.${SUB}"
           echo "KERNEL_FULL=$KERNEL_FULL" >> $GITHUB_ENV
 
-          # 发布目录名（取自内核自身 BRANCH 配置，如 android13-5.15）
+          # Publish dir name (from the kernel's own BRANCH config, e.g. android13-5.15)
           BRANCH_DIR=$(grep '^BRANCH=' common/build.config.constants | cut -d'=' -f2)
           [ -z "$BRANCH_DIR" ] && BRANCH_DIR="android13-5.15"
           echo "BRANCH_DIR=$BRANCH_DIR" >> $GITHUB_ENV
 
-          # 源码提交
+          # Kernel source commit
           COMMIT=$(git -C common rev-parse HEAD)
           echo "KERNEL_COMMIT=$COMMIT" >> $GITHUB_ENV
 
-          echo "内核版本: $KERNEL_FULL"
-          echo "发布目录: $BRANCH_DIR"
-          echo "源码提交: $COMMIT"
+          echo "Kernel version: $KERNEL_FULL"
+          echo "Publish dir: $BRANCH_DIR"
+          echo "Source commit: $COMMIT"
 
-      - name: 准备打包工具
+      - name: Prepare packaging tools
         working-directory: ${{ github.workspace }}/android-kernel
         run: |
           AOSP_MIRROR=https://android.googlesource.com
@@ -125,26 +140,35 @@ jobs:
           git clone https://github.com/WildKernels/AnyKernel3.git -b gki-2.0 --depth 1 AnyKernel3
           rm -rf AnyKernel3/.git
 
-      - name: 构建内核
+      - name: Build kernel
         working-directory: ${{ github.workspace }}/android-kernel
         run: |
           set -ex
 
-          # 调整 GKI 构建配置，避免模块/ABI 检查干扰自定义构建
+          # Tweak GKI build config to avoid module/ABI checks interfering with custom builds
           sed -i 's/BUILD_SYSTEM_DLKM=1/BUILD_SYSTEM_DLKM=0/' ./common/build.config.gki.aarch64
           sed -i '/MODULES_ORDER=android\/gki_aarch64_modules/d' ./common/build.config.gki.aarch64
           sed -i '/KMI_SYMBOL_LIST_STRICT_MODE/d' ./common/build.config.gki.aarch64
           sed -i 's/check_defconfig//' ./common/build.config.gki
 
-          # 使用系统 clang + ccache（与 runner 自带工具链兼容）
+          # Strip "-dirty" from the kernel version string (source tree is modified by the steps above)
+          sed -i 's/-dirty//' ./common/scripts/setlocalversion
+
+          # Use the runner's system clang + ccache
+          # BUILD_NUMBER (if provided) is picked up by scripts/setlocalversion
+          # to append "-ab<build_number>" to the kernel version string
+          if [ -n "${{ inputs.build_number }}" ]; then
+            export BUILD_NUMBER="${{ inputs.build_number }}"
+            echo "BUILD_NUMBER=$BUILD_NUMBER (will append -ab$BUILD_NUMBER)"
+          fi
           LTO=thin BUILD_CONFIG=common/build.config.gki.aarch64 \
             build/build.sh CC="/usr/bin/ccache clang"
 
-          # 验证产物
+          # Verify output
           strings "out/$BRANCH_DIR/dist/Image" | grep 'Linux version'
           ls -lh "out/$BRANCH_DIR/dist/"
 
-      - name: 打包 Boot 镜像与 AnyKernel3
+      - name: Package boot images & AnyKernel3
         working-directory: ${{ github.workspace }}/android-kernel
         run: |
           set -ex
@@ -160,7 +184,7 @@ jobs:
 
           cd "$GITHUB_WORKSPACE/publish"
           gzip -n -k -f -9 Image
-          # Android 13+ 标准 GKI boot 镜像（header v4，无 ramdisk，AVB 签名）
+          # Standard GKI boot image for Android 13+ (header v4, no ramdisk, AVB-signed)
           $MKBOOTIMG --header_version 4 --kernel Image --output boot.img
           $AVBTOOL add_hash_footer --partition_name boot --partition_size $((64 * 1024 * 1024)) \
             --image boot.img --algorithm SHA256_RSA2048 --key "$BOOT_SIGN_KEY"
@@ -174,37 +198,37 @@ jobs:
           $AVBTOOL add_hash_footer --partition_name boot --partition_size $((64 * 1024 * 1024)) \
             --image boot-lz4.img --algorithm SHA256_RSA2048 --key "$BOOT_SIGN_KEY"
 
-          # AnyKernel3 刷入包
+          # AnyKernel3 flashable zip
           cp Image "$GITHUB_WORKSPACE/android-kernel/AnyKernel3/Image"
           cd "$GITHUB_WORKSPACE/android-kernel/AnyKernel3"
           zip -r "$GITHUB_WORKSPACE/publish/${BRANCH_DIR}-AnyKernel3.zip" ./*
 
-          # 构建信息
+          # Build info
           cat > "$GITHUB_WORKSPACE/publish/BUILD_INFO.txt" << EOF
-          内核版本   : $KERNEL_FULL
-          来源仓库   : $KERNEL_REPO
-          来源分支   : $KERNEL_BRANCH
-          源码提交   : $KERNEL_COMMIT
-          构建时间   : $(date -u '+%Y-%m-%d %H:%M:%S UTC')
-          构建运行   : $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID
+          Kernel version: $KERNEL_FULL
+          Source repo    : $KERNEL_REPO
+          Source branch  : $KERNEL_BRANCH
+          Source commit  : $KERNEL_COMMIT
+          Build time     : $(date -u '+%Y-%m-%d %H:%M:%S UTC')
+          Build run      : $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID
           EOF
 
           ls -lh "$GITHUB_WORKSPACE/publish/"
 
-      - name: 上传构建产物 (Artifact)
+      - name: Upload build artifacts
         uses: actions/upload-artifact@v6
         with:
           name: "${{ env.BRANCH_DIR }}-${{ env.KERNEL_FULL }}"
           path: publish/*
           compression-level: 9
 
-      - name: 发布到 android_kernel 分支
+      - name: Publish to android_kernel branch
         run: |
           set -e
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          # 切换到 android_kernel 分支（不存在则创建 orphan）
+          # Switch to the android_kernel branch (create orphan if it does not exist)
           git fetch origin android_kernel || true
           if git rev-parse --verify origin/android_kernel >/dev/null 2>&1; then
             git checkout -B android_kernel origin/android_kernel
@@ -213,20 +237,21 @@ jobs:
             git rm -rf . >/dev/null 2>&1 || true
           fi
 
-          # 更新目标目录（如 android13-5.15/），每次构建替换该目录内容
+          # Update the target directory (e.g. android13-5.15/), replacing its contents
           git rm -rf --ignore-unmatch "$BRANCH_DIR" >/dev/null 2>&1 || true
           mkdir -p "$BRANCH_DIR"
           cp -r "$GITHUB_WORKSPACE/publish/"* "$BRANCH_DIR/"
 
           git add "$BRANCH_DIR"
           if git diff --cached --quiet; then
-            echo "无产物变更，跳过提交"
+            echo "No artifact changes, skipping commit"
           else
-            git commit -m "构建 $BRANCH_DIR 内核 $KERNEL_FULL
+            git commit -m "Build $BRANCH_DIR kernel $KERNEL_FULL
 
-            来源: $KERNEL_REPO @ $KERNEL_BRANCH
-            提交: $KERNEL_COMMIT
+            Source: $KERNEL_REPO @ $KERNEL_BRANCH
+            Commit: $KERNEL_COMMIT
             CI: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
             git push origin android_kernel
-            echo "已推送到 android_kernel 分支: $BRANCH_DIR/"
+            echo "Pushed to android_kernel branch: $BRANCH_DIR/"
           fi
+
