@@ -55,17 +55,21 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y git curl python3 ccache build-essential libssl-dev bison flex libelf-dev dwarves zip
           
-          # Download and extract Google's prebuilt clang toolchain
+          # 下载并解压 Google 预构建的 clang 工具链
           echo "Downloading Google LLVM toolchain (clang-r596125)..."
           mkdir -p /tmp/llvm-build
           cd /tmp/llvm-build
           
-          # Use official Google Android LLVM prebuilt
-          CLANG_URL="https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/main/clang-r596125.tar.gz"
+          # 使用官方 Google Android LLVM 预构建版本
+          CLANG_URL="https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/main/clang-r596125.tar.gz"
           
           echo "Downloading from: $CLANG_URL"
-          curl -L -f --retry 3 --retry-delay 5 -o clang-r596125.tar.gz "$CLANG_URL" || \
-          wget --retry-connrefused --waitretry=5 -O clang-r596125.tar.gz "$CLANG_URL"
+          
+          # 先尝试 wget，然后备用 curl
+          if ! wget --timeout=30 --retry-connrefused --waitretry=5 -O clang-r596125.tar.gz "$CLANG_URL" 2>/dev/null; then
+            echo "wget failed, retrying with curl..."
+            curl -L -f --retry 5 --retry-delay 10 -o clang-r596125.tar.gz "$CLANG_URL" || true
+          fi
           
           if [ ! -f "clang-r596125.tar.gz" ]; then
             echo "ERROR: Failed to download clang-r596125.tar.gz"
@@ -74,7 +78,7 @@ jobs:
           
           tar -xzf clang-r596125.tar.gz
           
-          # Set up PATH to use Google's clang
+          # 设置 PATH 使用 Google 的 clang
           echo "CLANG_PATH=/tmp/llvm-build/clang-r596125" >> $GITHUB_ENV
           echo "/tmp/llvm-build/clang-r596125/bin" >> $GITHUB_PATH
           
