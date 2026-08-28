@@ -59,7 +59,9 @@ jobs:
       - name: Install build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y ccache python3 git curl build-essential libssl-dev bison flex libelf-dev dwarves
+          # clang is required explicitly: newer ubuntu-latest runners no longer
+          # ship /usr/bin/clang by default
+          sudo apt-get install -y ccache clang python3 git curl build-essential libssl-dev bison flex libelf-dev dwarves
           mkdir -p "$GITHUB_WORKSPACE/android-kernel/git-repo"
           curl -sL https://storage.googleapis.com/git-repo-downloads/repo -o "$GITHUB_WORKSPACE/android-kernel/git-repo/repo"
           chmod +x "$GITHUB_WORKSPACE/android-kernel/git-repo/repo"
@@ -254,4 +256,3 @@ jobs:
             git push origin android_kernel
             echo "Pushed to android_kernel branch: $BRANCH_DIR/"
           fi
-
