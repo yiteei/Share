@@ -50,7 +50,7 @@ jobs:
           remove_swap: true
           remove_packages: "azure-cli google-cloud-cli microsoft-edge-stable google-chrome-stable firefox postgresql* temurin-* *llvm* mysql* dotnet-sdk-*"
           remove_packages_one_command: true
-          remove_folders: "/usr/share/swift /usr/share/miniconda /usr/share/az* /usr/local/lib/node_modules /usr/local/share/chromium /usr/local/share/powershell /usr/local/julia /usr/local/aws-cli"
+          remove_folders: "/usr/share/swift /usr/share/miniconda /usr/share/az* /usr/local/lib/node_modules /usr/local/share/chromium /usr/local/share/powershell /usr/local/julia /usr/local/aws-cl[...]"
           rm_cmd: "rmz"
           rmz_version: "3.1.1"
           testing: false
@@ -164,8 +164,8 @@ jobs:
           echo "Verifying toolchain..."
           clang --version
           clang++ --version
-          which clang
-          which clang++
+          command -v clang || { echo "clang not found"; exit 1; }
+          command -v clang++ || { echo "clang++ not found"; exit 1; }
           
           # Set BUILD_NUMBER if provided
           if [ -n "${{ inputs.build_number }}" ]; then
