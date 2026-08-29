@@ -53,63 +53,35 @@ jobs:
       - name: Install build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y git curl python3 ccache build-essential libssl-dev bison flex libelf-dev dwarves zip
+          sudo apt-get install -y git curl python3 ccache build-essential libssl-dev bison flex libelf-dev dwareves zip wget
+
+      - name: Download Neutron-Clang toolchain
+        run: |
+          echo "Downloading Neutron-Clang toolchain..."
+          mkdir -p "$HOME/toolchains"
+          cd "$HOME/toolchains"
           
-          # 下载并解压 Google 预构建的 clang 工具链
-          echo "Downloading Google LLVM toolchain (clang-r596125)..."
-          mkdir -p /tmp/llvm-build
-          cd /tmp/llvm-build
+          # 使用 AntMan 工具下载最新的 Neutron-Clang
+          echo "Using AntMan to download Neutron-Clang..."
+          bash <(curl -s "https://raw.githubusercontent.com/Neutron-Toolchains/antman/main/antman") -S
           
-          # 使用官方 Google Android LLVM 预构建版本的正确 URL
-          # 注意：不要在 URL 中包含 +archive，应该直接使用存档下载
-          CLANG_URL="https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/main.tar.gz"
-          
-          echo "Downloading from: $CLANG_URL"
-          
-          # 尝试使用 curl 下载（支持更好的重试机制）
-          if ! curl -L -f --retry 3 --retry-delay 5 --connect-timeout 30 -o clang.tar.gz "$CLANG_URL"; then
-            echo "Primary URL failed, trying alternative mirror..."
-            # 备用方案：使用 GitHub 镜像或其他可靠源
-            # 这里需要根据实际可用的镜像源进行调整
-            echo "ERROR: Unable to download CLANG toolchain from available sources"
-            exit 1
-          fi
-          
-          if [ ! -f "clang.tar.gz" ] || [ ! -s "clang.tar.gz" ]; then
-            echo "ERROR: Downloaded file is empty or missing"
-            exit 1
-          fi
-          
-          # 检查是否为有效的 gzip 文件
-          if ! gzip -t clang.tar.gz 2>/dev/null; then
-            echo "ERROR: Downloaded file is not a valid gzip archive"
-            file clang.tar.gz
-            exit 1
-          fi
-          
-          echo "Extracting toolchain..."
-          tar -xzf clang.tar.gz
-          
-          # 查找 clang 二进制文件
-          if [ -d "clang-r596125" ]; then
-            CLANG_DIR="clang-r596125"
-          elif [ -d "clang" ]; then
-            CLANG_DIR="clang"
-            mv clang clang-r596125
-          else
-            echo "ERROR: Could not find clang directory after extraction"
+          if [ ! -d "neutron-clang" ]; then
+            echo "ERROR: Neutron-Clang directory not found after download"
             ls -la
             exit 1
           fi
           
-          # 设置 PATH 使用 Google 的 clang
-          echo "CLANG_PATH=/tmp/llvm-build/clang-r596125" >> $GITHUB_ENV
-          echo "/tmp/llvm-build/clang-r596125/bin" >> $GITHUB_PATH
+          # 验证工具链
+          echo "Verifying toolchain..."
+          export PATH="$HOME/toolchains/neutron-clang/bin:$PATH"
+          clang --version
+          
+          # 设置环境变量供后续步骤使用
+          echo "CLANG_PATH=$HOME/toolchains/neutron-clang" >> $GITHUB_ENV
+          echo "$HOME/toolchains/neutron-clang/bin" >> $GITHUB_PATH
           
           echo "--- Installed toolchain info ---"
           clang --version
-          echo "Linker info:"
-          ls -la /tmp/llvm-build/clang-r596125/bin/ld.lld || ls -la /tmp/llvm-build/clang-r596125/bin/lld || echo "Note: ld.lld symlink will be verified during build"
 
       - name: Configure ccache
         run: |
@@ -175,7 +147,6 @@ jobs:
           clang++ --version
           which clang
           which clang++
-          ls -la "$CLANG_PATH/bin/ld.lld" || ls -la "$CLANG_PATH/bin/lld"
           
           # Set BUILD_NUMBER if provided
           if [ -n "${{ inputs.build_number }}" ]; then
@@ -184,10 +155,10 @@ jobs:
           fi
           
           # Load default config
-          make O=out ARCH=arm64 LLVM="$CLANG_PATH" CC="$CLANG_PATH/bin/clang" defconfig
+          make O=out ARCH=arm64 CC=clang CLANG_TRIPLE=aarch64-linux-gnu- -j$(nproc) defconfig
           
           # Build kernel
-          make O=out ARCH=arm64 LLVM="$CLANG_PATH" CC="$CLANG_PATH/bin/clang" -j$(nproc) Image
+          make O=out ARCH=arm64 CC=clang CLANG_TRIPLE=aarch64-linux-gnu- -j$(nproc) Image
           
           # Verify output
           if [ -f "out/arch/arm64/boot/Image" ]; then
@@ -230,7 +201,7 @@ jobs:
           Source commit  : $KERNEL_COMMIT
           Build time     : $(date -u '+%Y-%m-%d %H:%M:%S UTC')
           Build run      : $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID
-          Toolchain      : Google LLVM r596125
+          Toolchain      : Neutron-Clang
           EOF
           
           ls -lh "$GITHUB_WORKSPACE/publish/"
