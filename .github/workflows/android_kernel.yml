@@ -75,12 +75,19 @@ jobs:
           echo "Syncing Neutron-Clang with AntMan..."
           ./antman --sync
           
-          # AntMan 会直接在当前目录创建 neutron-clang 目录
+          # Create neutron-clang directory structure if it wasn't created
           if [ ! -d "neutron-clang" ]; then
-            echo "ERROR: Neutron-Clang directory not found after sync"
-            echo "Directory contents:"
-            ls -la
-            exit 1
+            echo "Toolchain extracted to current directory, creating neutron-clang directory..."
+            mkdir -p neutron-clang
+            # Move extracted files into neutron-clang directory
+            if [ -d "bin" ]; then mv bin neutron-clang/; fi
+            if [ -d "lib" ]; then mv lib neutron-clang/; fi
+            if [ -f "build.info" ]; then mv build.info neutron-clang/; fi
+            echo "Directory structure created:"
+            ls -la neutron-clang/
+          else
+            echo "neutron-clang directory found:"
+            ls -la neutron-clang/
           fi
           
           # 验证工具链
