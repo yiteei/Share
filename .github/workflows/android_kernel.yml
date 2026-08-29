@@ -60,23 +60,47 @@ jobs:
           mkdir -p /tmp/llvm-build
           cd /tmp/llvm-build
           
-          # 使用官方 Google Android LLVM 预构建版本
-          CLANG_URL="https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/main/clang-r596125.tar.gz"
+          # 使用官方 Google Android LLVM 预构建版本的正确 URL
+          # 注意：不要在 URL 中包含 +archive，应该直接使用存档下载
+          CLANG_URL="https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/main.tar.gz"
           
           echo "Downloading from: $CLANG_URL"
           
-          # 先尝试 wget，然后备用 curl
-          if ! wget --timeout=30 --retry-connrefused --waitretry=5 -O clang-r596125.tar.gz "$CLANG_URL" 2>/dev/null; then
-            echo "wget failed, retrying with curl..."
-            curl -L -f --retry 5 --retry-delay 10 -o clang-r596125.tar.gz "$CLANG_URL" || true
-          fi
-          
-          if [ ! -f "clang-r596125.tar.gz" ]; then
-            echo "ERROR: Failed to download clang-r596125.tar.gz"
+          # 尝试使用 curl 下载（支持更好的重试机制）
+          if ! curl -L -f --retry 3 --retry-delay 5 --connect-timeout 30 -o clang.tar.gz "$CLANG_URL"; then
+            echo "Primary URL failed, trying alternative mirror..."
+            # 备用方案：使用 GitHub 镜像或其他可靠源
+            # 这里需要根据实际可用的镜像源进行调整
+            echo "ERROR: Unable to download CLANG toolchain from available sources"
             exit 1
           fi
           
-          tar -xzf clang-r596125.tar.gz
+          if [ ! -f "clang.tar.gz" ] || [ ! -s "clang.tar.gz" ]; then
+            echo "ERROR: Downloaded file is empty or missing"
+            exit 1
+          fi
+          
+          # 检查是否为有效的 gzip 文件
+          if ! gzip -t clang.tar.gz 2>/dev/null; then
+            echo "ERROR: Downloaded file is not a valid gzip archive"
+            file clang.tar.gz
+            exit 1
+          fi
+          
+          echo "Extracting toolchain..."
+          tar -xzf clang.tar.gz
+          
+          # 查找 clang 二进制文件
+          if [ -d "clang-r596125" ]; then
+            CLANG_DIR="clang-r596125"
+          elif [ -d "clang" ]; then
+            CLANG_DIR="clang"
+            mv clang clang-r596125
+          else
+            echo "ERROR: Could not find clang directory after extraction"
+            ls -la
+            exit 1
+          fi
           
           # 设置 PATH 使用 Google 的 clang
           echo "CLANG_PATH=/tmp/llvm-build/clang-r596125" >> $GITHUB_ENV
@@ -85,7 +109,7 @@ jobs:
           echo "--- Installed toolchain info ---"
           clang --version
           echo "Linker info:"
-          ls -la /tmp/llvm-build/clang-r596125/bin/ld.lld || echo "Note: ld.lld symlink will be verified during build"
+          ls -la /tmp/llvm-build/clang-r596125/bin/ld.lld || ls -la /tmp/llvm-build/clang-r596125/bin/lld || echo "Note: ld.lld symlink will be verified during build"
 
       - name: Configure ccache
         run: |
